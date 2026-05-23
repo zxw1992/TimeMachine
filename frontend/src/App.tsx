@@ -5,6 +5,7 @@ import { useI18n } from "./lib/i18n";
 import CapturePage from "./pages/CapturePage";
 import TimelinePage from "./pages/TimelinePage";
 import SearchPage from "./pages/SearchPage";
+import SettingsPage from "./pages/SettingsPage";
 
 const NAV = [
   { to: "/capture", key: "nav.capture" },
@@ -50,6 +51,18 @@ export default function App() {
           <div className="ml-auto flex items-center gap-1">
             <LanguageToggle />
             <ThemeToggle />
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `text-base px-2.5 py-1 rounded-md transition-colors duration-200 ${
+                  isActive ? "text-ink bg-surface2" : "text-ink-muted hover:text-amber hover:bg-surface2"
+                }`
+              }
+              title={t("nav.settings")}
+              aria-label={t("nav.settings")}
+            >
+              ⚙
+            </NavLink>
           </div>
         </div>
       </header>
@@ -60,6 +73,7 @@ export default function App() {
           <Route path="/capture" element={<CapturePage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
     </div>

@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import get_conn
-from .routes import entries, search, timeline
+from .routes import entries, search, settings as settings_routes, timeline
 
 settings = get_settings()
 app = FastAPI(title="AI Time Machine", version="0.1.0")
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(entries.router)
 app.include_router(timeline.router)
 app.include_router(search.router)
+app.include_router(settings_routes.router)
 
 # Serve uploaded files (image thumbnails, original audio) to the frontend.
 app.mount("/files", StaticFiles(directory=str(settings.data_path)), name="files")

@@ -85,6 +85,13 @@ class CompositeProvider:
         return await self.embedder.embed(text)
 
 
+def _find_custom(name: str) -> dict | None:
+    for cp in get_settings().custom_providers:
+        if str(cp.get("id", "")).lower() == name:
+            return cp
+    return None
+
+
 def _build(name: str) -> AIProvider:
     name = name.lower()
     if name == "claude":
@@ -99,13 +106,45 @@ def _build(name: str) -> AIProvider:
     if name in ("bailian", "dashscope", "qwen"):
         from .bailian_provider import BailianProvider
         return BailianProvider()
+    cfg = _find_custom(name)
+    if cfg is not None:
+        from .openai_compatible_provider import OpenAICompatibleProvider
+        return OpenAICompatibleProvider(cfg)
     raise ValueError(f"Unknown AI provider: {name}")
 
 
-# Providers without a native embedding capability
-_NO_EMBED = {"claude"}
-# Providers without native audio transcription
-_NO_TRANSCRIBE = {"claude", "bailian", "dashscope", "qwen"}
+# Capabilities of the built-in providers.
+_BUILTIN_CAPS: dict[str, set[str]] = {
+    "claude": {"vision", "title"},
+    "openai": {"vision", "title", "embed", "transcribe"},
+    "gemini": {"vision", "title", "embed", "transcribe"},
+    "bailian": {"vision", "title", "embed"},
+}
+
+
+def supports(name: str, cap: str) -> bool:
+    """Whether provider `name` offers capability `cap`
+    (vision / title / embed / transcribe)."""
+    name = name.lower()
+    if name in ("dashscope", "qwen"):
+        name = "bailian"
+    if name in _BUILTIN_CAPS:
+        return cap in _BUILTIN_CAPS[name]
+    cfg = _find_custom(name)
+    if cfg is not None:
+        return cap in set(cfg.get("caps") or [])
+    return False
+
+
+def _resolve_role(role_name: str, cap: str, primary_name: str) -> str:
+    """Resolve the provider name for an embed/transcribe role, applying the
+    'same' alias and forcing a fallback to openai when the choice can't do it."""
+    name = role_name.lower()
+    if name == "same":
+        name = primary_name
+    if not supports(name, cap):
+        name = "openai"  # forced fallback to a capable built-in
+    return name
 
 
 @lru_cache
@@ -114,20 +153,12 @@ def get_provider() -> CompositeProvider:
     primary_name = s.ai_provider.lower()
     primary = _build(primary_name)
 
-    embed_name = s.embedding_provider.lower()
-    if embed_name == "same":
-        embed_name = primary_name
-    if embed_name == primary_name and primary_name in _NO_EMBED:
-        embed_name = "openai"  # forced fallback
+    embed_name = _resolve_role(s.embedding_provider, "embed", primary_name)
     embedder: AIProvider | _Lazy = (
         primary if embed_name == primary_name else _Lazy(embed_name, lambda n=embed_name: _build(n))
     )
 
-    trans_name = s.transcribe_provider.lower()
-    if trans_name == "same":
-        trans_name = primary_name
-    if trans_name == primary_name and primary_name in _NO_TRANSCRIBE:
-        trans_name = "openai"  # forced fallback
+    trans_name = _resolve_role(s.transcribe_provider, "transcribe", primary_name)
     transcriber: AIProvider | _Lazy = (
         primary if trans_name == primary_name else _Lazy(trans_name, lambda n=trans_name: _build(n))
     )
