@@ -11,10 +11,16 @@ const KIND_LABEL: Record<string, string> = {
 
 export default function EntryDrawer({
   entryId,
+  entryIds,
+  onSelect,
   onClose,
   onDeleted,
 }: {
   entryId: number | null;
+  /** Ordered list of entry ids to navigate through (← / →). */
+  entryIds?: number[];
+  /** Called when the user navigates to a different entry via prev/next. */
+  onSelect?: (id: number) => void;
   onClose: () => void;
   onDeleted?: () => void;
 }) {
@@ -33,13 +39,44 @@ export default function EntryDrawer({
       .finally(() => setLoading(false));
   }, [entryId]);
 
-  // Close on Esc
+  // Prev/next bounds (current list order; prev = idx-1, next = idx+1).
+  const idx =
+    entryIds && entryId != null ? entryIds.indexOf(entryId) : -1;
+  const prevId = idx > 0 ? entryIds![idx - 1] : null;
+  const nextId =
+    idx >= 0 && entryIds && idx < entryIds.length - 1
+      ? entryIds[idx + 1]
+      : null;
+
+  // Esc closes; ← / → step through the list when available.
   useEffect(() => {
     if (entryId == null) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Ignore when typing in an input/textarea/contenteditable.
+      const t = e.target as HTMLElement | null;
+      if (
+        t &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "ArrowLeft" && prevId != null) {
+        e.preventDefault();
+        onSelect?.(prevId);
+      } else if (e.key === "ArrowRight" && nextId != null) {
+        e.preventDefault();
+        onSelect?.(nextId);
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [entryId, onClose]);
+  }, [entryId, prevId, nextId, onClose, onSelect]);
 
   const open = entryId != null;
   const thumb =
@@ -84,13 +121,33 @@ export default function EntryDrawer({
               <span className="mono-time text-xs text-ink-faint">
                 #{entry.id}
               </span>
-              <button
-                onClick={onClose}
-                className="ml-auto btn-ghost text-base"
-                aria-label="关闭"
-              >
-                ✕
-              </button>
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => prevId != null && onSelect?.(prevId)}
+                  disabled={prevId == null}
+                  className="btn-ghost text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                  aria-label="上一条"
+                  title="上一条 (←)"
+                >
+                  ←
+                </button>
+                <button
+                  onClick={() => nextId != null && onSelect?.(nextId)}
+                  disabled={nextId == null}
+                  className="btn-ghost text-sm disabled:opacity-30 disabled:cursor-not-allowed"
+                  aria-label="下一条"
+                  title="下一条 (→)"
+                >
+                  →
+                </button>
+                <button
+                  onClick={onClose}
+                  className="btn-ghost text-base ml-1"
+                  aria-label="关闭"
+                >
+                  ✕
+                </button>
+              </div>
             </header>
 
             {/* Content */}

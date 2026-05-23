@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { listTimeline, type TimelineItem } from "../api";
+import CalendarHeatmap from "../components/CalendarHeatmap";
 import EntryDrawer from "../components/EntryDrawer";
 import { cnDate, dayKey, hhmm, localIso } from "../lib/date";
 
@@ -27,11 +28,30 @@ const KIND_GLYPH: Record<string, string> = {
   audio: "声",
 };
 
+// Dot color by kind — kept inside the warm-paper palette.
+const KIND_DOT: Record<string, string> = {
+  text: "bg-ink-muted border-ink-muted",
+  image: "bg-amber border-amber",
+  audio: "bg-amber-soft border-amber-soft",
+};
+
+/** Pixel gap above an entry, scaled by minutes since the previous one. */
+function gapPx(prevIso: string | null, currIso: string): number {
+  if (!prevIso) return 0;
+  const dtMin =
+    Math.abs(new Date(prevIso).getTime() - new Date(currIso).getTime()) / 60000;
+  if (dtMin < 3) return 0;
+  // log2(3min)≈1.6 → ~13px, log2(60)≈5.9 → ~47px, log2(720)≈9.5 → ~76px (capped 80)
+  return Math.max(0, Math.min(80, Math.round(Math.log2(dtMin) * 8)));
+}
+
 export default function TimelinePage() {
   const [range, setRange] = useState<Range>("week");
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [heatmapKey, setHeatmapKey] = useState(0);
+  const pendingScrollDay = useRef<string | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -42,6 +62,7 @@ export default function TimelinePage() {
         limit: 2000,
       });
       setItems(data);
+      setHeatmapKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
@@ -51,6 +72,28 @@ export default function TimelinePage() {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
+
+  // After data loads, scroll to the day requested via heatmap click.
+  useEffect(() => {
+    if (!pendingScrollDay.current || loading) return;
+    const day = pendingScrollDay.current;
+    const el = document.getElementById(`day-${day}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      pendingScrollDay.current = null;
+    }
+  }, [items, loading]);
+
+  function handleHeatmapDayClick(day: string) {
+    pendingScrollDay.current = day;
+    if (range !== "all") {
+      setRange("all"); // triggers refresh; scroll fires in the effect above
+    } else {
+      const el = document.getElementById(`day-${day}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      pendingScrollDay.current = null;
+    }
+  }
 
   // Group entries by day
   const grouped = useMemo(() => {
@@ -85,6 +128,12 @@ export default function TimelinePage() {
         </div>
       </div>
 
+      {/* Calendar heatmap — bird's-eye view, independent of the range selector */}
+      <CalendarHeatmap
+        refreshKey={heatmapKey}
+        onDayClick={handleHeatmapDayClick}
+      />
+
       {/* Status line */}
       <div className="mb-2 text-xs text-ink-faint mono-time">
         {loading ? "汲取中…" : items.length === 0 ? "" : `${items.length} 条记忆`}
@@ -114,7 +163,8 @@ export default function TimelinePage() {
         {grouped.map(([day, dayItems], gi) => (
           <section
             key={day}
-            className="relative mb-10 animate-develop"
+            id={`day-${day}`}
+            className="relative mb-10 animate-develop scroll-mt-6"
             style={{ animationDelay: `${Math.min(gi, 6) * 60}ms` }}
           >
             {/* Date marker: diamond */}
@@ -130,34 +180,42 @@ export default function TimelinePage() {
             </div>
 
             {/* Entry list for this day */}
-            <ul className="space-y-0.5">
-              {dayItems.map((it) => (
-                <li key={it.id} className="relative">
-                  <button
-                    onClick={() => setOpenId(it.id)}
-                    className="group w-full flex items-baseline gap-4 py-2 px-2 -mx-2 rounded-md
-                               text-left hover:bg-surface2 transition-colors duration-150"
+            <ul>
+              {dayItems.map((it, ii) => {
+                const prev = ii > 0 ? dayItems[ii - 1].occurred_at : null;
+                const mt = gapPx(prev, it.occurred_at);
+                return (
+                  <li
+                    key={it.id}
+                    className="relative"
+                    style={mt > 0 ? { marginTop: `${mt}px` } : undefined}
                   >
-                    {/* Entry dot */}
-                    <span
-                      className="absolute -left-[36px] top-[14px] w-[9px] h-[9px] rounded-full
-                                 bg-paper border-2 border-ink-faint
-                                 group-hover:border-amber group-hover:bg-amber
-                                 transition-colors duration-200"
-                      aria-hidden
-                    />
-                    <span className="mono-time text-xs text-ink-faint w-12 flex-shrink-0 pt-0.5">
-                      {hhmm(it.occurred_at)}
-                    </span>
-                    <span className="serif-title text-[15px] text-ink leading-snug flex-1 min-w-0 truncate">
-                      {it.title || it.snippet || "—"}
-                    </span>
-                    <span className="serif-title text-xs text-ink-faint pt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                      {KIND_GLYPH[it.kind]}
-                    </span>
-                  </button>
-                </li>
-              ))}
+                    <button
+                      onClick={() => setOpenId(it.id)}
+                      className="group w-full flex items-baseline gap-4 py-2 px-2 -mx-2 rounded-md
+                                 text-left hover:bg-surface2 transition-colors duration-150"
+                    >
+                      {/* Entry dot — color by kind */}
+                      <span
+                        className={`absolute -left-[36px] top-[14px] w-[9px] h-[9px] rounded-full border-2
+                                    ${KIND_DOT[it.kind] ?? "bg-paper border-ink-faint"}
+                                    group-hover:ring-2 group-hover:ring-amber/40 group-hover:ring-offset-1 group-hover:ring-offset-paper
+                                    transition-all duration-200`}
+                        aria-hidden
+                      />
+                      <span className="mono-time text-xs text-ink-faint w-12 flex-shrink-0 pt-0.5">
+                        {hhmm(it.occurred_at)}
+                      </span>
+                      <span className="serif-title text-[15px] text-ink leading-snug flex-1 min-w-0 truncate">
+                        {it.title || it.snippet || "—"}
+                      </span>
+                      <span className="serif-title text-xs text-ink-faint pt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
+                        {KIND_GLYPH[it.kind]}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           </section>
         ))}
@@ -166,6 +224,8 @@ export default function TimelinePage() {
       {/* Detail drawer */}
       <EntryDrawer
         entryId={openId}
+        entryIds={items.map((it) => it.id)}
+        onSelect={setOpenId}
         onClose={() => setOpenId(null)}
         onDeleted={refresh}
       />
