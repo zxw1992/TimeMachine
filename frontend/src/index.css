@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────
+   Design tokens — warm minimal / paper aesthetic.
+   Colors are stored as space-separated RGB triplets so Tailwind
+   can apply alpha modifiers via rgb(var(...) / <alpha-value>).
+   ──────────────────────────────────────────────────────── */
+
+:root {
+  /* Colors */
+  --c-paper:       250 248 245;   /* #FAF8F5 paper background */
+  --c-surface:     255 253 250;   /* #FFFDFA card surface */
+  --c-surface-2:   245 240 232;   /* secondary surface */
+  --c-ink:         31 27 22;      /* #1F1B16 primary ink */
+  --c-ink-muted:   100 91 79;     /* #645B4F secondary ink */
+  --c-ink-faint:   166 154 137;   /* faint ink */
+  --c-divider:     232 223 210;   /* hairline divider */
+  --c-amber:       184 115 47;    /* #B8732F amber accent */
+  --c-amber-soft:  221 176 119;   /* #DDB077 */
+  --c-shadow:      80 60 30;      /* shadow (warm tinted) */
+
+  color-scheme: light;
+}
+
+html.dark {
+  --c-paper:       26 22 18;      /* #1A1612 warm charcoal */
+  --c-surface:     34 30 24;      /* #221E18 */
+  --c-surface-2:   46 40 32;      /* secondary surface */
+  --c-ink:         242 234 224;   /* #F2EAE0 ivory */
+  --c-ink-muted:   156 144 128;
+  --c-ink-faint:   106 96 84;
+  --c-divider:     46 40 32;
+  --c-amber:       212 144 80;    /* brighter on dark */
+  --c-amber-soft:  140 92 50;
+  --c-shadow:      0 0 0;
+
+  color-scheme: dark;
+}
+
+/* ────────────────────────────────────────────────────────
+   Global baseline
+   ──────────────────────────────────────────────────────── */
+
+html, body, #root { height: 100%; }
+
+html {
+  /* Smooth color transitions when toggling themes. */
+  transition: background-color 300ms ease, color 300ms ease;
+}
+
+body {
+  font-family: theme('fontFamily.sans');
+  background: rgb(var(--c-paper));
+  color: rgb(var(--c-ink));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "tnum" 1, "kern" 1;
+}
+
+/* Selection color: amber at 18% */
+::selection {
+  background: rgb(var(--c-amber) / 0.18);
+  color: rgb(var(--c-ink));
+}
+
+/* Scrollbar: low-key */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-divider));
+  border-radius: 999px;
+  border: 2px solid rgb(var(--c-paper));
+}
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-ink-faint)); }
+
+/* ────────────────────────────────────────────────────────
+   Reusable component classes
+   ──────────────────────────────────────────────────────── */
+
+@layer components {
+  .serif-title {
+    font-family: theme('fontFamily.serif');
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .mono-time {
+    font-family: theme('fontFamily.mono');
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  /* Hairline divider */
+  .hairline {
+    border-color: rgb(var(--c-divider));
+  }
+  /* Minimal ghost button */
+  .btn-ghost {
+    @apply px-3 py-1.5 rounded-md text-ink-muted hover:text-ink hover:bg-surface2
+           transition-colors duration-200;
+  }
+  .btn-ink {
+    @apply px-4 py-2 rounded-md bg-ink text-paper
+           hover:bg-ink/90 active:scale-[0.98]
+           transition-all duration-200 font-medium text-sm;
+  }
+  /* Input: borderless, with a fine amber underline on focus. */
+  .input-clean {
+    @apply bg-transparent border-0 border-b border-divider
+           focus:border-amber focus:outline-none focus:ring-0
+           transition-colors duration-200;
+  }
+  /* Card surface */
+  .surface-card {
+    @apply bg-surface border border-divider/60 rounded-xl shadow-soft;
+  }
+}
+
+/* Respect prefers-reduced-motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

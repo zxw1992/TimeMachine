@@ -1,0 +1,50 @@
+# 敏感配置
+backend/.env
+
+# 数据与本地状态（SQLite + 上传文件）
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / 前端
+node_modules/
+frontend/dist/
+
+# 日志
+*.log
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# Local-only files (per CLAUDE.md project conventions)
+CLAUDE.md
+TODO.md
+*.local.md
+
+# Personal design / planning docs (not for public GitHub)
+PLAN.md
+PLAN_zh.md
+implementation-notes.html
+implementation-notes_zh.html
+
+# Claude Code conversation exports
+*-ai.txt
+*-claude.txt
