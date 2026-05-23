@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createEntry, deleteEntry, listEntries, type EntryOut } from "../api";
-import RiverEntry from "../components/RiverEntry";
+import { createEntry } from "../api";
 
 type Mode = "text" | "image" | "audio";
 
@@ -17,7 +16,6 @@ export default function CapturePage() {
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [recent, setRecent] = useState<EntryOut[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Audio recording state
@@ -36,10 +34,6 @@ export default function CapturePage() {
     setFilePreview(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
-
-  useEffect(() => {
-    listEntries(10).then(setRecent).catch(() => {});
-  }, []);
 
   // Global paste handler: pasting an image auto-switches to image mode.
   useEffect(() => {
@@ -114,18 +108,11 @@ export default function CapturePage() {
       setText("");
       setHint("");
       setFile(null);
-      setRecent(await listEntries(10));
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSubmitting(false);
     }
-  }
-
-  async function handleDelete(id: number) {
-    if (!confirm("确认删除这条记录？")) return;
-    await deleteEntry(id);
-    setRecent(await listEntries(10));
   }
 
   const canSubmit =
@@ -285,22 +272,6 @@ export default function CapturePage() {
           </button>
         </div>
       </form>
-
-      {/* Recent memories */}
-      {recent.length > 0 && (
-        <section className="mt-16">
-          <div className="flex items-baseline gap-3 mb-6">
-            <h2 className="serif-title text-lg text-ink">最近的记忆</h2>
-            <span className="flex-1 h-px bg-divider" />
-            <span className="mono-time text-[10px] text-ink-faint">{recent.length} 条</span>
-          </div>
-          <div>
-            {recent.map((e) => (
-              <RiverEntry key={e.id} entry={e} onDelete={handleDelete} />
-            ))}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
