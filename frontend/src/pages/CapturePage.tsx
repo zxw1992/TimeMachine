@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { createEntry } from "../api";
+import { useI18n } from "../lib/i18n";
 
 type Mode = "text" | "image" | "audio";
 
-const MODE_LABEL: Record<Mode, string> = {
-  text: "想到的",
-  image: "看到的",
-  audio: "听到的",
-};
-
 export default function CapturePage() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("text");
   const [text, setText] = useState("");
   const [hint, setHint] = useState("");
@@ -81,7 +77,7 @@ export default function CapturePage() {
       setRecordSec(0);
       recordTimerRef.current = window.setInterval(() => setRecordSec((s) => s + 1), 1000);
     } catch (e: any) {
-      setError("无法访问麦克风：" + e.message);
+      setError(t("capture.audio.micError", { msg: e.message }));
     }
   }
 
@@ -121,10 +117,8 @@ export default function CapturePage() {
 
   return (
     <div className="max-w-compose mx-auto px-6 pt-10 pb-24 animate-fade-in">
-      <h1 className="serif-title text-3xl text-ink mb-2">此刻</h1>
-      <p className="text-sm text-ink-faint mb-8">
-        把看到的、听到的、想到的，丢进时光机。
-      </p>
+      <h1 className="serif-title text-3xl text-ink mb-2">{t("capture.title")}</h1>
+      <p className="text-sm text-ink-faint mb-8">{t("capture.subtitle")}</p>
 
       {/* Mode toggles: minimal ink dots */}
       <div className="flex items-center gap-6 mb-6">
@@ -145,7 +139,7 @@ export default function CapturePage() {
                 mode === m ? "bg-amber scale-125" : "bg-ink-faint"
               }`}
             />
-            <span className="serif-title text-base">{MODE_LABEL[m]}</span>
+            <span className="serif-title text-base">{t(`capture.mode.${m}`)}</span>
           </button>
         ))}
       </div>
@@ -156,7 +150,7 @@ export default function CapturePage() {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="此刻在想什么…"
+            placeholder={t("capture.text.placeholder")}
             className="w-full min-h-[180px] bg-transparent border-0 focus:outline-none
                        text-base leading-7 text-ink placeholder:text-ink-faint
                        serif-title resize-none"
@@ -176,8 +170,8 @@ export default function CapturePage() {
                   className="hidden"
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
-                <div className="text-ink-muted mb-2 serif-title">选择或拖入一张图</div>
-                <div className="text-xs text-ink-faint">⌘V 也可以直接粘贴截图</div>
+                <div className="text-ink-muted mb-2 serif-title">{t("capture.image.drop")}</div>
+                <div className="text-xs text-ink-faint">{t("capture.image.paste")}</div>
               </label>
             ) : (
               <div className="space-y-3">
@@ -194,19 +188,19 @@ export default function CapturePage() {
                                bg-paper/80 backdrop-blur text-ink-muted hover:text-amber
                                opacity-0 group-hover:opacity-100 transition-opacity"
                   >
-                    换一张
+                    {t("capture.image.replace")}
                   </button>
                 </div>
                 <input
                   value={hint}
                   onChange={(e) => setHint(e.target.value)}
-                  placeholder="可选：补充上下文（在哪儿看到的）"
+                  placeholder={t("capture.image.hint")}
                   className="input-clean w-full py-2 text-sm text-ink placeholder:text-ink-faint"
                 />
                 <textarea
                   value={text}
                   onChange={(e) => setText(e.target.value)}
-                  placeholder="可选：你自己的批注"
+                  placeholder={t("capture.image.note")}
                   className="w-full bg-transparent border-0 focus:outline-none resize-none
                              text-sm leading-6 text-ink placeholder:text-ink-faint min-h-[60px]"
                 />
@@ -225,7 +219,7 @@ export default function CapturePage() {
                   className="w-16 h-16 rounded-full bg-amber text-paper text-2xl
                              hover:scale-105 active:scale-95 transition-transform duration-150
                              shadow-soft"
-                  aria-label="开始录音"
+                  aria-label={t("capture.audio.start")}
                 >
                   ●
                 </button>
@@ -235,7 +229,7 @@ export default function CapturePage() {
                   onClick={stopRecording}
                   className="w-16 h-16 rounded-full bg-ink text-paper text-2xl
                              animate-pulse-soft shadow-hover"
-                  aria-label="停止录音"
+                  aria-label={t("capture.audio.stop")}
                 >
                   ■
                 </button>
@@ -250,7 +244,7 @@ export default function CapturePage() {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="可选：你的批注"
+              placeholder={t("capture.audio.note")}
               className="w-full bg-transparent border-t hairline pt-3 border-0 focus:outline-none
                          text-sm leading-6 text-ink placeholder:text-ink-faint min-h-[60px] resize-none"
             />
@@ -262,13 +256,13 @@ export default function CapturePage() {
         <div className="mt-5 flex items-center justify-between border-t hairline pt-4">
           <div className="text-xs text-ink-faint">
             {submitting ? (
-              <span className="animate-pulse-soft">AI 正在为你整理…</span>
+              <span className="animate-pulse-soft">{t("capture.submitting")}</span>
             ) : (
-              "保存后会自动生成标题与描述"
+              t("capture.footerHint")
             )}
           </div>
           <button type="submit" disabled={!canSubmit} className="btn-ink disabled:opacity-30">
-            存入时光机
+            {t("capture.submit")}
           </button>
         </div>
       </form>

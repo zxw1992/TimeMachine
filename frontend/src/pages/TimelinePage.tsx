@@ -2,15 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { listTimeline, type TimelineItem } from "../api";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import EntryDrawer from "../components/EntryDrawer";
-import { cnDate, dayKey, hhmm, localIso } from "../lib/date";
+import { dayKey, hhmm, localIso, longDate } from "../lib/date";
+import { useI18n } from "../lib/i18n";
 
 type Range = "today" | "week" | "month" | "all";
-const RANGES: { key: Range; label: string }[] = [
-  { key: "today", label: "今日" },
-  { key: "week", label: "本周" },
-  { key: "month", label: "本月" },
-  { key: "all", label: "全部" },
-];
+const RANGES: Range[] = ["today", "week", "month", "all"];
 
 function rangeBounds(r: Range): { from?: string; to?: string } {
   if (r === "all") return {};
@@ -21,12 +17,6 @@ function rangeBounds(r: Range): { from?: string; to?: string } {
   if (r === "month") start.setMonth(now.getMonth() - 1);
   return { from: localIso(start), to: localIso(now) };
 }
-
-const KIND_GLYPH: Record<string, string> = {
-  text: "文",
-  image: "影",
-  audio: "声",
-};
 
 // Dot color by kind — kept inside the warm-paper palette.
 const KIND_DOT: Record<string, string> = {
@@ -46,6 +36,7 @@ function gapPx(prevIso: string | null, currIso: string): number {
 }
 
 export default function TimelinePage() {
+  const { t, lang } = useI18n();
   const [range, setRange] = useState<Range>("week");
   const [items, setItems] = useState<TimelineItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -110,19 +101,19 @@ export default function TimelinePage() {
     <div className="max-w-prose mx-auto px-6 pt-10 pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-12 animate-fade-in">
-        <h1 className="serif-title text-2xl text-ink">时间之河</h1>
+        <h1 className="serif-title text-2xl text-ink">{t("timeline.title")}</h1>
         <div className="flex items-center gap-1">
           {RANGES.map((r) => (
             <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
+              key={r}
+              onClick={() => setRange(r)}
               className={`mono-time text-xs px-3 py-1 rounded-full transition-all duration-200 ${
-                range === r.key
+                range === r
                   ? "bg-ink text-paper"
                   : "text-ink-muted hover:text-ink hover:bg-surface2"
               }`}
             >
-              {r.label}
+              {t(`timeline.range.${r}`)}
             </button>
           ))}
         </div>
@@ -136,7 +127,11 @@ export default function TimelinePage() {
 
       {/* Status line */}
       <div className="mb-2 text-xs text-ink-faint mono-time">
-        {loading ? "汲取中…" : items.length === 0 ? "" : `${items.length} 条记忆`}
+        {loading
+          ? t("timeline.loading")
+          : items.length === 0
+            ? ""
+            : t("timeline.count", { n: items.length })}
       </div>
 
       {/* ───── Time axis ─────
@@ -152,10 +147,10 @@ export default function TimelinePage() {
         {grouped.length === 0 && !loading && (
           <div className="py-24 text-center animate-fade-in">
             <p className="serif-title text-lg text-ink-muted">
-              这段时间还没有记忆。
+              {t("timeline.empty.title")}
             </p>
             <p className="mt-2 text-sm text-ink-faint">
-              去"记录"页留下点什么吧。
+              {t("timeline.empty.hint")}
             </p>
           </div>
         )}
@@ -173,7 +168,7 @@ export default function TimelinePage() {
                 className="absolute -left-12 top-1.5 w-[14px] h-[14px] bg-paper border hairline rotate-45"
                 aria-hidden
               />
-              <h2 className="serif-title text-base text-ink">{cnDate(day)}</h2>
+              <h2 className="serif-title text-base text-ink">{longDate(day, lang)}</h2>
               <span className="mono-time text-[10px] text-ink-faint">
                 {day} · {dayItems.length}
               </span>
@@ -210,7 +205,7 @@ export default function TimelinePage() {
                         {it.title || it.snippet || "—"}
                       </span>
                       <span className="serif-title text-xs text-ink-faint pt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                        {KIND_GLYPH[it.kind]}
+                        {t(`kind.glyph.${it.kind}`)}
                       </span>
                     </button>
                   </li>

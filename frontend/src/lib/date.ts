@@ -14,9 +14,22 @@ function cnNum(n: number): string {
 
 const CN_MONTH = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
 
-/** Format as "五月二十三日 · 周六" — Chinese month/day + weekday. */
-export function cnDate(iso: string): string {
+import type { Lang } from "./i18n";
+
+/**
+ * Long date with weekday.
+ * zh → "五月二十三日 · 周六"; en → "May 23 · Sat".
+ */
+export function longDate(iso: string, lang: Lang = "zh"): string {
   const d = new Date(iso);
+  if (lang === "en") {
+    const md = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(d);
+    const wd = new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(d);
+    return `${md} · ${wd}`;
+  }
   return `${CN_MONTH[d.getMonth()]}月${cnNum(d.getDate())}日 · ${CN_WEEK[d.getDay()]}`;
 }
 

@@ -31,7 +31,7 @@ class ClaudeProvider:
         mime, _ = mimetypes.guess_type(str(image_path))
         mime = mime or "image/png"
         data = base64.b64encode(image_path.read_bytes()).decode("ascii")
-        hint_block = f"\n用户补充上下文：{hint}" if hint else ""
+        hint_block = f"\n\nUser context: {hint}" if hint else ""
         prompt = IMAGE_PROMPT.format(hint_block=hint_block)
         msg = await self.client.messages.create(
             model=self.vision_model,

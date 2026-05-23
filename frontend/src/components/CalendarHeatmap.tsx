@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { listTimeline } from "../api";
 import { dayKey, localIso } from "../lib/date";
+import { useI18n, type Lang } from "../lib/i18n";
 
 const MONTHS_TO_SHOW = 3;
 const CN_MONTH = [
   "一", "二", "三", "四", "五", "六",
   "七", "八", "九", "十", "十一", "十二",
 ];
+const EN_MONTH = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
 // Monday-first weekday labels
-const WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
+const CN_WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"];
+const EN_WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
 interface MonthCell {
   day: string;     // "YYYY-MM-DD", empty when out-of-month
@@ -63,7 +69,13 @@ function monthGrid(
   return cells;
 }
 
+function monthName(month: number, lang: Lang): string {
+  return lang === "en" ? EN_MONTH[month] : CN_MONTH[month];
+}
+
 export default function CalendarHeatmap({ refreshKey = 0, onDayClick }: Props) {
+  const { t, lang } = useI18n();
+  const weekdays = lang === "en" ? EN_WEEKDAYS : CN_WEEKDAYS;
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [collapsed, setCollapsed] = useState(false);
 
@@ -120,25 +132,25 @@ export default function CalendarHeatmap({ refreshKey = 0, onDayClick }: Props) {
   }, []);
 
   const total = useMemo(() => {
-    let t = 0;
-    counts.forEach((v) => (t += v));
-    return t;
+    let sum = 0;
+    counts.forEach((v) => (sum += v));
+    return sum;
   }, [counts]);
 
   return (
     <div className="mb-8 animate-fade-in">
       <div className="flex items-baseline justify-between mb-3">
         <h2 className="serif-title text-sm text-ink-muted">
-          月度鸟瞰
+          {t("heatmap.title")}
           <span className="ml-2 mono-time text-[10px] text-ink-faint">
-            近 {MONTHS_TO_SHOW} 个月 · {total} 条
+            {t("heatmap.summary", { months: MONTHS_TO_SHOW, total })}
           </span>
         </h2>
         <button
           onClick={() => setCollapsed((c) => !c)}
           className="mono-time text-[10px] text-ink-faint hover:text-ink transition-colors"
         >
-          {collapsed ? "展开" : "收起"}
+          {collapsed ? t("heatmap.expand") : t("heatmap.collapse")}
         </button>
       </div>
 
@@ -149,12 +161,15 @@ export default function CalendarHeatmap({ refreshKey = 0, onDayClick }: Props) {
             return (
               <div key={`${year}-${month}`} className="select-none">
                 <div className="mono-time text-[10px] text-ink-faint mb-1.5 text-center">
-                  {year}·{CN_MONTH[month]}月
+                  {t("heatmap.monthLabel", {
+                    year,
+                    month: monthName(month, lang),
+                  })}
                 </div>
                 <div className="grid grid-cols-7 gap-[2px] mb-1">
-                  {WEEKDAYS.map((w) => (
+                  {weekdays.map((w, wi) => (
                     <div
-                      key={w}
+                      key={wi}
                       className="serif-title text-[9px] text-ink-faint text-center"
                     >
                       {w}
@@ -169,8 +184,11 @@ export default function CalendarHeatmap({ refreshKey = 0, onDayClick }: Props) {
                     const { bg, text } = band(c.count);
                     const isToday = c.day === todayKey;
                     const clickable = c.count > 0;
-                    const title =
-                      `${c.day} · ${c.count > 0 ? `${c.count} 条记忆` : "无记录"}`;
+                    const title = `${c.day} · ${
+                      c.count > 0
+                        ? t("heatmap.tip.has", { n: c.count })
+                        : t("heatmap.tip.none")
+                    }`;
                     return (
                       <button
                         key={idx}

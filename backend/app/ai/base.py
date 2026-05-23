@@ -16,13 +16,24 @@ class AIProvider(Protocol):
     async def embed(self, text: str) -> list[float]: ...
 
 
+# NOTE: These prompts are intentionally written in English as instructions to
+# the model, but they ask the model to OUTPUT in the same language as the
+# content. This makes titles/descriptions adapt to the user's language
+# (Chinese in → Chinese out, English in → English out).
 SUMMARY_PROMPT = (
-    "你是一个为个人记忆时间线生成条目标题的助手。基于下面这段内容，"
-    "生成一句简洁的中文标题，不超过20个字，不要加引号或标点结尾。\n\n内容：\n{body}"
+    "You generate a title for an entry in a personal memory timeline. "
+    "Based on the content below, write one concise title with no surrounding "
+    "quotes and no trailing punctuation (about 12 words, or 20 characters for CJK). "
+    "Write the title in the same language as the content.\n\nContent:\n{body}"
 )
 
 IMAGE_PROMPT = (
-    "请仔细观察这张图片，用中文写一段简洁但信息密集的描述（80-200字），覆盖以下要点："
-    "1) 主体与场景；2) 重要文字（如有，原样保留）；3) 关键物体/品牌/人物；4) 氛围或可能的用途。"
+    "Look carefully at this image and write a concise but information-dense "
+    "description (about 50-120 words, or 80-200 characters for CJK) covering: "
+    "1) the main subject and scene; 2) any important text (preserve it verbatim if present); "
+    "3) key objects / brands / people; 4) the mood or likely purpose. "
+    "Write the description in the same language as the text shown in the image, "
+    "or the language of the user's context note below; "
+    "if neither is present, default to Chinese."
     "{hint_block}"
 )

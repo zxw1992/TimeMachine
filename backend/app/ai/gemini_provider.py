@@ -21,7 +21,7 @@ class GeminiProvider:
         self.embedding_dim = 768  # text-embedding-004
 
     async def describe_image(self, image_path: Path, hint: str | None = None) -> str:
-        hint_block = f"\n用户补充上下文：{hint}" if hint else ""
+        hint_block = f"\n\nUser context: {hint}" if hint else ""
         prompt = IMAGE_PROMPT.format(hint_block=hint_block)
         mime = "image/png" if image_path.suffix.lower() == ".png" else "image/jpeg"
         image_part = {"mime_type": mime, "data": image_path.read_bytes()}
@@ -37,9 +37,12 @@ class GeminiProvider:
             mime = "audio/wav" if audio_path.suffix.lower() == ".wav" else "audio/mpeg"
             audio_part = {"mime_type": mime, "data": audio_path.read_bytes()}
             resp = self.model.generate_content(
-                # Prompt in Chinese on purpose so transcription stays in Chinese
-                # for the same reason the rest of the prompts are in Chinese.
-                ["请将这段音频转写成中文文本，仅输出转写内容。", audio_part]
+                # Transcribe in whatever language is actually spoken.
+                [
+                    "Transcribe this audio verbatim in the language spoken. "
+                    "Output only the transcription, with no extra commentary.",
+                    audio_part,
+                ]
             )
             return (resp.text or "").strip()
 

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "../lib/i18n";
 
 /** Custom pseudo-waveform audio bar: CSS bars + a hidden <audio>, avoiding the bulky default browser controls. */
 export default function AudioPlayer({ src }: { src: string }) {
+  const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0..1
@@ -56,7 +58,7 @@ export default function AudioPlayer({ src }: { src: string }) {
         onClick={toggle}
         className="w-9 h-9 rounded-full bg-ink text-paper flex items-center justify-center
                    hover:scale-105 active:scale-95 transition-transform duration-150"
-        aria-label={playing ? "暂停" : "播放"}
+        aria-label={playing ? t("audio.pause") : t("audio.play")}
       >
         {playing ? (
           <span className="block w-2 h-3 border-l-2 border-r-2 border-paper" />

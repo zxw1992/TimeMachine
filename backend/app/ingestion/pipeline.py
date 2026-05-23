@@ -66,7 +66,7 @@ async def ingest(
         source_rel = str(path.relative_to(settings.data_path))
         body = await provider.describe_image(path, hint=hint)
         if text and text.strip():
-            body = f"{text.strip()}\n\n[AI 描述] {body}"
+            body = f"{text.strip()}\n\n[AI description] {body}"
         thumb = _make_thumbnail(path)
         if thumb:
             meta["thumbnail"] = thumb
@@ -77,9 +77,9 @@ async def ingest(
         path = _save_upload(file_bytes, file_ext)
         source_rel = str(path.relative_to(settings.data_path))
         transcript = await provider.transcribe_audio(path)
-        body = transcript or "(空转写)"
+        body = transcript or "(empty transcript)"
         if text and text.strip():
-            body = f"{text.strip()}\n\n[转写] {body}"
+            body = f"{text.strip()}\n\n[Transcript] {body}"
 
     else:
         raise ValueError(f"未知 kind: {kind}")

@@ -1,13 +1,8 @@
 import { useState } from "react";
 import type { EntryOut } from "../api";
 import { hhmm } from "../lib/date";
+import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
-
-const KIND_GLYPH: Record<string, string> = {
-  text: "文",
-  image: "影",
-  audio: "声",
-};
 
 export default function RiverEntry({
   entry,
@@ -20,6 +15,7 @@ export default function RiverEntry({
   onDelete?: (id: number) => void;
   score?: number;
 }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const thumb =
     entry.meta && typeof entry.meta["thumbnail"] === "string"
@@ -36,7 +32,7 @@ export default function RiverEntry({
       <div className="grid grid-cols-[72px_1fr] gap-6 py-5 border-t hairline first:border-t-0">
         <div className="pt-1 flex flex-col items-end gap-1">
           <span className="mono-time text-sm text-ink">{hhmm(entry.occurred_at)}</span>
-          <span className="serif-title text-xs text-ink-faint">{KIND_GLYPH[entry.kind]}</span>
+          <span className="serif-title text-xs text-ink-faint">{t(`kind.glyph.${entry.kind}`)}</span>
         </div>
 
         {/* Body column */}
@@ -48,7 +44,7 @@ export default function RiverEntry({
             )}
             {score !== undefined && (
               <span className="mono-time text-[10px] text-amber whitespace-nowrap">
-                · 相似 {(score * 100).toFixed(0)}%
+                {t("entry.match", { pct: (score * 100).toFixed(0) })}
               </span>
             )}
           </div>
@@ -91,7 +87,7 @@ export default function RiverEntry({
               onClick={() => setExpanded((e) => !e)}
               className="hover:text-amber transition-colors duration-200"
             >
-              {expanded ? "收起" : "展开"}
+              {expanded ? t("entry.collapse") : t("entry.expand")}
             </button>
             {onDelete && (
               <button
@@ -99,7 +95,7 @@ export default function RiverEntry({
                 className="hover:text-amber transition-colors duration-200
                            opacity-0 group-hover:opacity-100"
               >
-                删除
+                {t("entry.delete")}
               </button>
             )}
           </div>

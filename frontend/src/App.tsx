@@ -1,13 +1,15 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import LanguageToggle from "./components/LanguageToggle";
 import ThemeToggle from "./components/ThemeToggle";
+import { useI18n } from "./lib/i18n";
 import CapturePage from "./pages/CapturePage";
 import TimelinePage from "./pages/TimelinePage";
 import SearchPage from "./pages/SearchPage";
 
 const NAV = [
-  { to: "/capture", label: "记录" },
-  { to: "/timeline", label: "时光" },
-  { to: "/search", label: "回溯" },
+  { to: "/capture", key: "nav.capture" },
+  { to: "/timeline", key: "nav.timeline" },
+  { to: "/search", key: "nav.search" },
 ];
 
 function navCls({ isActive }: { isActive: boolean }) {
@@ -18,12 +20,13 @@ function navCls({ isActive }: { isActive: boolean }) {
 }
 
 export default function App() {
+  const { t } = useI18n();
   return (
     <div className="h-full flex flex-col">
       <header className="sticky top-0 z-10 backdrop-blur-md bg-paper/70 border-b hairline">
         <div className="max-w-prose mx-auto px-6 h-14 flex items-center gap-8">
           <div className="flex items-baseline gap-3">
-            <span className="serif-title text-xl text-ink">时光机</span>
+            <span className="serif-title text-xl text-ink">{t("brand")}</span>
             <span className="mono-time text-[10px] text-ink-faint tracking-widest">
               AI&nbsp;TIME&nbsp;MACHINE
             </span>
@@ -34,7 +37,7 @@ export default function App() {
               <NavLink key={n.to} to={n.to} className={navCls}>
                 {({ isActive }) => (
                   <>
-                    <span className="serif-title">{n.label}</span>
+                    <span className="serif-title">{t(n.key)}</span>
                     {isActive && (
                       <span className="absolute -bottom-[10px] left-0 right-0 h-px bg-amber" />
                     )}
@@ -44,7 +47,8 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-1">
+            <LanguageToggle />
             <ThemeToggle />
           </div>
         </div>

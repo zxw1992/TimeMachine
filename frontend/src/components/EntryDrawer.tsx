@@ -1,13 +1,8 @@
 import { useEffect, useState } from "react";
 import { deleteEntry, getEntry, type EntryOut } from "../api";
-import { cnDate, hhmm } from "../lib/date";
+import { hhmm, longDate } from "../lib/date";
+import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
-
-const KIND_LABEL: Record<string, string> = {
-  text: "文字",
-  image: "影像",
-  audio: "声音",
-};
 
 export default function EntryDrawer({
   entryId,
@@ -24,6 +19,7 @@ export default function EntryDrawer({
   onClose: () => void;
   onDeleted?: () => void;
 }) {
+  const { t, lang } = useI18n();
   const [entry, setEntry] = useState<EntryOut | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -86,7 +82,7 @@ export default function EntryDrawer({
 
   async function handleDelete() {
     if (!entry) return;
-    if (!confirm("确认删除这条记忆？")) return;
+    if (!confirm(t("drawer.confirmDelete"))) return;
     await deleteEntry(entry.id);
     onDeleted?.();
     onClose();
@@ -116,7 +112,7 @@ export default function EntryDrawer({
             {/* Drawer header */}
             <header className="sticky top-0 z-10 bg-surface/85 backdrop-blur px-8 py-4 border-b hairline flex items-center gap-3">
               <span className="mono-time text-xs text-ink-faint">
-                {KIND_LABEL[entry.kind]}
+                {t(`kind.${entry.kind}`)}
               </span>
               <span className="mono-time text-xs text-ink-faint">
                 #{entry.id}
@@ -126,8 +122,8 @@ export default function EntryDrawer({
                   onClick={() => prevId != null && onSelect?.(prevId)}
                   disabled={prevId == null}
                   className="btn-ghost text-sm disabled:opacity-30 disabled:cursor-not-allowed"
-                  aria-label="上一条"
-                  title="上一条 (←)"
+                  aria-label={t("drawer.prev")}
+                  title={t("drawer.prevTitle")}
                 >
                   ←
                 </button>
@@ -135,15 +131,15 @@ export default function EntryDrawer({
                   onClick={() => nextId != null && onSelect?.(nextId)}
                   disabled={nextId == null}
                   className="btn-ghost text-sm disabled:opacity-30 disabled:cursor-not-allowed"
-                  aria-label="下一条"
-                  title="下一条 (→)"
+                  aria-label={t("drawer.next")}
+                  title={t("drawer.nextTitle")}
                 >
                   →
                 </button>
                 <button
                   onClick={onClose}
                   className="btn-ghost text-base ml-1"
-                  aria-label="关闭"
+                  aria-label={t("drawer.close")}
                 >
                   ✕
                 </button>
@@ -153,7 +149,7 @@ export default function EntryDrawer({
             {/* Content */}
             <article className="px-8 py-8 animate-fade-in">
               <div className="mono-time text-xs text-ink-faint tracking-wider mb-3">
-                {cnDate(entry.occurred_at)} · {hhmm(entry.occurred_at)}
+                {longDate(entry.occurred_at, lang)} · {hhmm(entry.occurred_at)}
               </div>
               {entry.title && (
                 <h2 className="serif-title text-2xl text-ink leading-snug mb-6">
@@ -188,20 +184,24 @@ export default function EntryDrawer({
 
               <footer className="mt-12 pt-4 border-t hairline flex items-center justify-between text-xs text-ink-faint">
                 <span className="mono-time">
-                  写入于 {new Date(entry.created_at).toLocaleString("zh-CN")}
+                  {t("drawer.savedAt", {
+                    time: new Date(entry.created_at).toLocaleString(
+                      lang === "en" ? "en-US" : "zh-CN",
+                    ),
+                  })}
                 </span>
                 <button
                   onClick={handleDelete}
                   className="hover:text-amber transition-colors duration-200"
                 >
-                  删除这条记忆
+                  {t("drawer.delete")}
                 </button>
               </footer>
             </article>
           </div>
         ) : loading ? (
           <div className="p-8 text-ink-faint mono-time text-sm animate-pulse-soft">
-            汲取中…
+            {t("drawer.loading")}
           </div>
         ) : null}
       </aside>
