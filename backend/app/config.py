@@ -92,6 +92,17 @@ def _read_overlay(base: Settings) -> dict:
 
 @lru_cache
 def get_settings() -> Settings:
+    """Effective settings, resolved by layering (lowest → highest precedence):
+
+        code defaults  <  .env / environment vars  <  data/settings.json
+
+    The JSON overlay is written by the in-app settings page and only contains
+    the fields the user actually changed; every other field falls through to
+    .env / defaults. Because the overlay wins, a value set in the UI SHADOWS
+    the same key in .env (the .env file is never modified). To make .env
+    authoritative again, delete data/settings.json or change the value back in
+    the UI. API keys live in the overlay in plaintext, same as .env.
+    """
     base = Settings()  # .env + env vars + defaults
     overlay = _read_overlay(base)
     if not overlay:
