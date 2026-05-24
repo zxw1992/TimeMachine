@@ -1,19 +1,26 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from ..db import get_conn
-from ..ingestion.pipeline import delete_entry, fetch_entry, ingest
+from ..ingestion.pipeline import create_pending, delete_entry, fetch_entry, process_entry
 from ..schemas import EntryOut
 
 router = APIRouter(prefix="/api/entries", tags=["entries"])
 
+# Keep references to detached processing tasks so they aren't garbage-collected.
+_bg_tasks: set[asyncio.Task] = set()
+
 
 def _row_to_out(row: dict) -> EntryOut:
     meta = json.loads(row["meta_json"]) if row.get("meta_json") else None
+    if isinstance(meta, dict):
+        # Drop internal bookkeeping keys (e.g. _pending) before exposing.
+        meta = {k: v for k, v in meta.items() if not k.startswith("_")} or None
     source_url = f"/files/{row['source_path']}" if row.get("source_path") else None
     return EntryOut(
         id=row["id"],
@@ -24,6 +31,7 @@ def _row_to_out(row: dict) -> EntryOut:
         body=row["body"],
         source_url=source_url,
         meta=meta,
+        status=row.get("status") or "done",
     )
 
 
@@ -49,7 +57,7 @@ async def create_entry(
             file_ext = ".png" if kind == "image" else ".webm"
 
     try:
-        entry_id = await ingest(
+        entry_id = create_pending(
             kind=kind,
             text=text,
             file_bytes=file_bytes,
@@ -59,6 +67,11 @@ async def create_entry(
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+
+    # Run the slow AI steps in the background; the client polls the entry.
+    task = asyncio.create_task(process_entry(entry_id))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
     row = fetch_entry(entry_id)
     if row is None:

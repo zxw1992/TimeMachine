@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { createEntry } from "../api";
+import { createEntry, getEntry } from "../api";
+import ProcessingTray, { type Job } from "../components/ProcessingTray";
 import { useI18n } from "../lib/i18n";
 
 type Mode = "text" | "image" | "audio";
 
+const isTerminal = (s: string) => s === "done" || s === "error";
+
 export default function CapturePage() {
   const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("text");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const jobsRef = useRef<Job[]>([]);
+  jobsRef.current = jobs;
+  const handledRef = useRef<Set<number>>(new Set());
   const [text, setText] = useState("");
   const [hint, setHint] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -100,16 +107,75 @@ export default function CapturePage() {
       if (text.trim()) fd.append("text", text.trim());
       if (hint.trim()) fd.append("hint", hint.trim());
       if ((mode === "image" || mode === "audio") && file) fd.append("file", file);
-      await createEntry(fd);
+      const entry = await createEntry(fd);
+      setJobs((prev) => [
+        { id: entry.id, kind: entry.kind, status: entry.status, title: entry.title },
+        ...prev,
+      ]);
       setText("");
       setHint("");
       setFile(null);
+      // Ask once for notification permission so we can alert on completion.
+      if (typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSubmitting(false);
     }
   }
+
+  function dismissJob(id: number) {
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+  }
+
+  function notifyDone(title: string | null) {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      new Notification(t("brand"), { body: title || t("capture.done.toast") });
+    }
+  }
+
+  // Poll in-flight jobs until they settle; notify + auto-dismiss when done.
+  useEffect(() => {
+    const active = jobs.filter((j) => !isTerminal(j.status));
+    if (active.length === 0) return;
+    const timer = setInterval(async () => {
+      const live = jobsRef.current.filter((j) => !isTerminal(j.status));
+      const results = await Promise.all(
+        live.map(async (j) => {
+          try {
+            const e = await getEntry(j.id);
+            return {
+              id: j.id,
+              status: e.status,
+              title: e.title,
+              error: (e.meta as Record<string, unknown> | null)?.error as string | undefined,
+            };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      setJobs((prev) =>
+        prev.map((j) => {
+          const r = results.find((x) => x && x.id === j.id);
+          return r ? { ...j, status: r.status, title: r.title ?? j.title, error: r.error } : j;
+        }),
+      );
+      for (const r of results) {
+        if (r && isTerminal(r.status) && !handledRef.current.has(r.id)) {
+          handledRef.current.add(r.id);
+          if (r.status === "done") {
+            notifyDone(r.title);
+            setTimeout(() => dismissJob(r.id), 6000);
+          }
+        }
+      }
+    }, 1200);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs.filter((j) => !isTerminal(j.status)).map((j) => j.id).join(",")]);
 
   const canSubmit =
     !submitting &&
@@ -266,6 +332,8 @@ export default function CapturePage() {
           </button>
         </div>
       </form>
+
+      <ProcessingTray jobs={jobs} onDismiss={dismissJob} />
     </div>
   );
 }

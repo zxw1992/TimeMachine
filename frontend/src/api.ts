@@ -1,5 +1,15 @@
 export type EntryKind = "text" | "image" | "audio";
 
+// Processing lifecycle: queued → (describing|transcribing) → titling → embedding → done | error
+export type EntryStatus =
+  | "queued"
+  | "describing"
+  | "transcribing"
+  | "titling"
+  | "embedding"
+  | "done"
+  | "error";
+
 export interface EntryOut {
   id: number;
   occurred_at: string;
@@ -9,6 +19,7 @@ export interface EntryOut {
   body: string;
   source_url: string | null;
   meta: Record<string, unknown> | null;
+  status: EntryStatus;
 }
 
 export interface TimelineItem {
@@ -18,6 +29,7 @@ export interface TimelineItem {
   title: string | null;
   snippet: string;
   source_url: string | null;
+  status: EntryStatus;
 }
 
 export interface SearchHit {

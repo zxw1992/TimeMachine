@@ -17,6 +17,7 @@ class EntryOut(BaseModel):
     body: str
     source_url: str | None = None
     meta: dict | None = None
+    status: str = "done"
 
 
 class TimelineItem(BaseModel):
@@ -26,6 +27,7 @@ class TimelineItem(BaseModel):
     title: str | None = None
     snippet: str
     source_url: str | None = None
+    status: str = "done"
 
 
 class SearchRequest(BaseModel):

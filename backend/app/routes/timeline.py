@@ -23,7 +23,7 @@ async def list_timeline(
     limit: int = Query(500, le=2000),
     order: str = Query("asc", pattern="^(asc|desc)$"),
 ) -> list[TimelineItem]:
-    sql = "SELECT id, occurred_at, kind, title, body, source_path, meta_json FROM entries WHERE 1=1"
+    sql = "SELECT id, occurred_at, kind, title, body, source_path, meta_json, status FROM entries WHERE 1=1"
     args: list = []
     if from_:
         sql += " AND occurred_at >= ?"
@@ -54,6 +54,7 @@ async def list_timeline(
                 title=r["title"],
                 snippet=_snippet(r["body"]),
                 source_url=source_url,
+                status=r["status"] if "status" in r.keys() else "done",
             )
         )
     return out

@@ -33,7 +33,34 @@ def get_conn() -> sqlite3.Connection:
         settings = get_settings()
         _conn = _connect(settings.db_path)
         _init_schema(_conn)
+        _migrate(_conn)
     return _conn
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """Lightweight in-place migrations for DBs created before a column existed."""
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(entries)").fetchall()}
+    if "status" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN status TEXT NOT NULL DEFAULT 'done'")
+        conn.commit()
+
+
+def update_entry_status(entry_id: int, status: str) -> None:
+    with transaction() as conn:
+        conn.execute("UPDATE entries SET status = ? WHERE id = ?", (status, entry_id))
+
+
+def fail_stuck_entries() -> int:
+    """Mark entries left mid-processing (e.g. by a server restart) as 'error'.
+
+    Their background task is gone and can't be resumed, so flag them so the UI
+    can show a failure instead of an eternal spinner. Returns how many."""
+    with transaction() as conn:
+        cur = conn.execute(
+            "UPDATE entries SET status = 'error' "
+            "WHERE status NOT IN ('done', 'error')"
+        )
+        return cur.rowcount
 
 
 @contextmanager
@@ -58,7 +85,8 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             title        TEXT,
             body         TEXT NOT NULL,
             source_path  TEXT,
-            meta_json    TEXT
+            meta_json    TEXT,
+            status       TEXT NOT NULL DEFAULT 'done'
         );
 
         CREATE INDEX IF NOT EXISTS idx_entries_occurred_at ON entries(occurred_at);

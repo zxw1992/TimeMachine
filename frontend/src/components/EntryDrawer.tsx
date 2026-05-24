@@ -151,6 +151,17 @@ export default function EntryDrawer({
               <div className="mono-time text-xs text-ink-faint tracking-wider mb-3">
                 {longDate(entry.occurred_at, lang)} · {hhmm(entry.occurred_at)}
               </div>
+              {entry.status !== "done" && (
+                <div
+                  className={`mb-4 text-sm ${
+                    entry.status === "error" ? "text-amber" : "text-ink-faint italic"
+                  }`}
+                >
+                  {entry.status === "error"
+                    ? t("timeline.failed")
+                    : t("timeline.processing")}
+                </div>
+              )}
               {entry.title && (
                 <h2 className="serif-title text-2xl text-ink leading-snug mb-6">
                   {entry.title}
