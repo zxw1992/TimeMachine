@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createEntry, getEntry } from "../api";
+import { createEntry, getEntry, listEntries } from "../api";
 import ProcessingTray, { type Job } from "../components/ProcessingTray";
 import { useI18n } from "../lib/i18n";
 
@@ -27,6 +27,23 @@ export default function CapturePage() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
+
+  // On mount, recover any entries still processing in the backend (e.g. after
+  // navigating away and back, or a reload) so their progress reappears.
+  useEffect(() => {
+    listEntries(20)
+      .then((entries) => {
+        const inflight: Job[] = entries
+          .filter((e) => e.status !== "done" && e.status !== "error")
+          .map((e) => ({ id: e.id, kind: e.kind, status: e.status, title: e.title }));
+        if (inflight.length === 0) return;
+        setJobs((prev) => {
+          const ids = new Set(prev.map((j) => j.id));
+          return [...inflight.filter((j) => !ids.has(j.id)), ...prev];
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!file) {
