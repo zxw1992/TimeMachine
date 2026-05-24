@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
-from .db import get_conn
+from .db import fail_stuck_entries, get_conn
 from .routes import entries, search, settings as settings_routes, timeline
 
 settings = get_settings()
@@ -31,6 +31,7 @@ app.mount("/files", StaticFiles(directory=str(settings.data_path)), name="files"
 @app.on_event("startup")
 async def on_startup() -> None:
     get_conn()  # Trigger schema initialization.
+    fail_stuck_entries()  # Clean up entries orphaned by a previous restart.
 
 
 @app.get("/api/health")

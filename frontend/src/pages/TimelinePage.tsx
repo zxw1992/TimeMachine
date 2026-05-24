@@ -64,6 +64,17 @@ export default function TimelinePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
+  // While anything is still processing, poll so the timeline updates in place.
+  useEffect(() => {
+    const hasProcessing = items.some(
+      (it) => it.status !== "done" && it.status !== "error",
+    );
+    if (!hasProcessing) return;
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
+
   // After data loads, scroll to the day requested via heatmap click.
   useEffect(() => {
     if (!pendingScrollDay.current || loading) return;
@@ -179,6 +190,8 @@ export default function TimelinePage() {
               {dayItems.map((it, ii) => {
                 const prev = ii > 0 ? dayItems[ii - 1].occurred_at : null;
                 const mt = gapPx(prev, it.occurred_at);
+                const processing = it.status !== "done" && it.status !== "error";
+                const failed = it.status === "error";
                 return (
                   <li
                     key={it.id}
@@ -190,10 +203,16 @@ export default function TimelinePage() {
                       className="group w-full flex items-baseline gap-4 py-2 px-2 -mx-2 rounded-md
                                  text-left hover:bg-surface2 transition-colors duration-150"
                     >
-                      {/* Entry dot — color by kind */}
+                      {/* Entry dot — color by kind, or pulse while processing */}
                       <span
                         className={`absolute -left-[36px] top-[14px] w-[9px] h-[9px] rounded-full border-2
-                                    ${KIND_DOT[it.kind] ?? "bg-paper border-ink-faint"}
+                                    ${
+                                      processing
+                                        ? "bg-amber border-amber animate-pulse-soft"
+                                        : failed
+                                          ? "bg-paper border-ink-faint"
+                                          : KIND_DOT[it.kind] ?? "bg-paper border-ink-faint"
+                                    }
                                     group-hover:ring-2 group-hover:ring-amber/40 group-hover:ring-offset-1 group-hover:ring-offset-paper
                                     transition-all duration-200`}
                         aria-hidden
@@ -201,8 +220,16 @@ export default function TimelinePage() {
                       <span className="mono-time text-xs text-ink-faint w-12 flex-shrink-0 pt-0.5">
                         {hhmm(it.occurred_at)}
                       </span>
-                      <span className="serif-title text-[15px] text-ink leading-snug flex-1 min-w-0 truncate">
-                        {it.title || it.snippet || "—"}
+                      <span
+                        className={`serif-title text-[15px] leading-snug flex-1 min-w-0 truncate ${
+                          processing ? "text-ink-faint italic" : failed ? "text-amber" : "text-ink"
+                        }`}
+                      >
+                        {processing
+                          ? t("timeline.processing")
+                          : failed
+                            ? t("timeline.failed")
+                            : it.title || it.snippet || "—"}
                       </span>
                       <span className="serif-title text-xs text-ink-faint pt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                         {t(`kind.glyph.${it.kind}`)}

@@ -104,9 +104,19 @@ const zh: Dict = {
   "capture.audio.start": "开始录音",
   "capture.audio.stop": "停止录音",
   "capture.audio.micError": "无法访问麦克风：{msg}",
-  "capture.submitting": "AI 正在为你整理…",
+  "capture.submitting": "提交中…",
   "capture.footerHint": "保存后会自动生成标题与描述",
   "capture.submit": "存入时光机",
+  "capture.processing": "正在整理",
+  "capture.stage.queued": "排队中",
+  "capture.stage.describing": "识别图片",
+  "capture.stage.transcribing": "转写语音",
+  "capture.stage.titling": "生成标题",
+  "capture.stage.embedding": "建立索引",
+  "capture.stage.done": "完成",
+  "capture.stage.error": "处理失败",
+  "capture.done.toast": "已存入时光机",
+  "capture.dismiss": "知道了",
 
   // Timeline page
   "timeline.title": "时间之河",
@@ -118,6 +128,8 @@ const zh: Dict = {
   "timeline.count": "{n} 条记忆",
   "timeline.empty.title": "这段时间还没有记忆。",
   "timeline.empty.hint": "去“记录”页留下点什么吧。",
+  "timeline.processing": "整理中…",
+  "timeline.failed": "处理失败",
 
   // Calendar heatmap
   "heatmap.title": "月度鸟瞰",
@@ -263,9 +275,19 @@ const en: Dict = {
   "capture.audio.start": "Start recording",
   "capture.audio.stop": "Stop recording",
   "capture.audio.micError": "Cannot access microphone: {msg}",
-  "capture.submitting": "AI is tidying this up…",
+  "capture.submitting": "Submitting…",
   "capture.footerHint": "A title and description are generated automatically on save",
   "capture.submit": "Save to Time Machine",
+  "capture.processing": "Processing",
+  "capture.stage.queued": "Queued",
+  "capture.stage.describing": "Reading image",
+  "capture.stage.transcribing": "Transcribing",
+  "capture.stage.titling": "Writing title",
+  "capture.stage.embedding": "Indexing",
+  "capture.stage.done": "Done",
+  "capture.stage.error": "Failed",
+  "capture.done.toast": "Saved to your timeline",
+  "capture.dismiss": "Dismiss",
 
   // Timeline page
   "timeline.title": "River of Time",
@@ -277,6 +299,8 @@ const en: Dict = {
   "timeline.count": "{n} memories",
   "timeline.empty.title": "No memories in this period yet.",
   "timeline.empty.hint": "Head to “Capture” and jot something down.",
+  "timeline.processing": "Processing…",
+  "timeline.failed": "Failed",
 
   // Calendar heatmap
   "heatmap.title": "Monthly overview",
