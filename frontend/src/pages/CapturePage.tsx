@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createEntry, getEntry, listEntries } from "../api";
+import EntryDrawer from "../components/EntryDrawer";
+import OnThisDay from "../components/OnThisDay";
 import ProcessingTray, { type Job } from "../components/ProcessingTray";
 import { useI18n } from "../lib/i18n";
 
@@ -14,6 +16,8 @@ export default function CapturePage() {
   const jobsRef = useRef<Job[]>([]);
   jobsRef.current = jobs;
   const handledRef = useRef<Set<number>>(new Set());
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [memoriesKey, setMemoriesKey] = useState(0);
   const [text, setText] = useState("");
   const [hint, setHint] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -351,6 +355,14 @@ export default function CapturePage() {
       </form>
 
       <ProcessingTray jobs={jobs} onDismiss={dismissJob} />
+
+      <OnThisDay refreshKey={memoriesKey} onOpen={setOpenId} />
+
+      <EntryDrawer
+        entryId={openId}
+        onClose={() => setOpenId(null)}
+        onDeleted={() => setMemoriesKey((k) => k + 1)}
+      />
     </div>
   );
 }
