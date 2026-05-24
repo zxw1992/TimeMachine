@@ -37,22 +37,31 @@ function stepState(step: EntryStatus, status: EntryStatus): "done" | "active" | 
 export default function ProcessingTray({
   jobs,
   onDismiss,
+  onOpen,
 }: {
   jobs: Job[];
   onDismiss: (id: number) => void;
+  onOpen: (id: number) => void;
 }) {
   const { t } = useI18n();
   if (jobs.length === 0) return null;
 
   return (
-    <div className="mt-8 space-y-3">
+    <div className="mt-8">
+      <div className="flex items-baseline gap-3 mb-3">
+        <h2 className="serif-title text-base text-ink">{t("capture.recent")}</h2>
+        <span className="flex-1 h-px bg-divider" />
+      </div>
+      <div className="space-y-3">
       {jobs.map((job) => {
         const failed = job.status === "error";
         const done = job.status === "done";
         return (
           <div
             key={job.id}
-            className="surface-card p-4 animate-slide-up flex items-start gap-3"
+            onClick={() => onOpen(job.id)}
+            className="surface-card p-4 animate-slide-up flex items-start gap-3
+                       cursor-pointer hover:shadow-hover transition-shadow"
           >
             <span className="text-sm pt-0.5">
               {done ? "✓" : failed ? "⚠" : <span className="inline-block animate-pulse-soft">●</span>}
@@ -102,7 +111,10 @@ export default function ProcessingTray({
 
             {(done || failed) && (
               <button
-                onClick={() => onDismiss(job.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDismiss(job.id);
+                }}
                 className="text-xs text-ink-faint hover:text-amber transition-colors"
               >
                 {t("capture.dismiss")}
@@ -111,6 +123,7 @@ export default function ProcessingTray({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

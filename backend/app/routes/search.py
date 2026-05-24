@@ -10,6 +10,11 @@ from ..schemas import EntryOut, SearchHit, SearchRequest, SearchResponse
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
+# Drop hits below this similarity score so clearly-unrelated memories don't
+# surface. score = 1 - L2_distance over (roughly unit-norm) embeddings, so it
+# sits in [-1, 1]; ~0.15 is the empirical "barely related" floor.
+MIN_SCORE = 0.15
+
 
 def _row_to_out(row: dict) -> EntryOut:
     meta = json.loads(row["meta_json"]) if row["meta_json"] else None
@@ -53,7 +58,9 @@ async def search(req: SearchRequest) -> SearchResponse:
     """
     rows = conn.execute(sql, args).fetchall()
     hits = [
-        SearchHit(entry=_row_to_out(dict(r)), score=float(1.0 - r["distance"]))
+        hit
         for r in rows
+        if (hit := SearchHit(entry=_row_to_out(dict(r)), score=float(1.0 - r["distance"]))).score
+        >= MIN_SCORE
     ]
     return SearchResponse(hits=hits)

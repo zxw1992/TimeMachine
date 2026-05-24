@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { listTimeline, type TimelineItem } from "../api";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import EntryDrawer from "../components/EntryDrawer";
@@ -43,6 +44,18 @@ export default function TimelinePage() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [heatmapKey, setHeatmapKey] = useState(0);
   const pendingScrollDay = useRef<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Deep link from the capture page's "Recent" list: ?entry=<id> opens that
+  // entry's detail drawer. Consume the param so it doesn't reopen on refresh.
+  useEffect(() => {
+    const entry = searchParams.get("entry");
+    if (!entry) return;
+    setOpenId(Number(entry));
+    searchParams.delete("entry");
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function refresh() {
     setLoading(true);

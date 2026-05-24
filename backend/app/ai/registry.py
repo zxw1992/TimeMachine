@@ -147,6 +147,48 @@ def _resolve_role(role_name: str, cap: str, primary_name: str) -> str:
     return name
 
 
+async def startup_probe() -> None:
+    """Best-effort check that a Bailian key matches its region endpoint.
+
+    Bailian returns 401/403 when a key issued for one region (e.g. Beijing) is
+    sent to another region's base_url. That failure otherwise only surfaces on
+    the user's first capture; here we catch it at startup and print the fix.
+    Only runs when Bailian is actually in use; never blocks or crashes startup.
+    """
+    s = get_settings()
+    names = {
+        s.ai_provider.lower(),
+        s.embedding_provider.lower(),
+        s.transcribe_provider.lower(),
+    }
+    if "same" in names:
+        names.add(s.ai_provider.lower())
+    if not names & {"bailian", "dashscope", "qwen"}:
+        return
+
+    try:
+        from openai import AuthenticationError, PermissionDeniedError
+    except ImportError:  # pragma: no cover - openai is a hard dep
+        return
+
+    try:
+        from .bailian_provider import BailianProvider
+
+        await BailianProvider().embed("ping")
+    except (AuthenticationError, PermissionDeniedError):
+        print(
+            "⚠ Bailian (DashScope) rejected the API key (401/403). This usually "
+            "means the key belongs to a different region than DASHSCOPE_BASE_URL.\n"
+            "  Beijing    https://dashscope.aliyuncs.com/compatible-mode/v1\n"
+            "  Singapore  https://dashscope-intl.aliyuncs.com/compatible-mode/v1\n"
+            "  Virginia   https://dashscope-us.aliyuncs.com/compatible-mode/v1\n"
+            "  Match DASHSCOPE_BASE_URL to the region where the key was created."
+        )
+    except Exception:
+        # Offline, wrong model id, etc. — not a region problem, stay quiet.
+        pass
+
+
 @lru_cache
 def get_provider() -> CompositeProvider:
     s = get_settings()

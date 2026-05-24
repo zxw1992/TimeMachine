@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createEntry, getEntry, listEntries } from "../api";
+import AudioPlayer from "../components/AudioPlayer";
 import EntryDrawer from "../components/EntryDrawer";
 import OnThisDay from "../components/OnThisDay";
 import ProcessingTray, { type Job } from "../components/ProcessingTray";
@@ -9,8 +11,11 @@ type Mode = "text" | "image" | "audio";
 
 const isTerminal = (s: string) => s === "done" || s === "error";
 
+const MAX_RECENT = 5;
+
 export default function CapturePage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("text");
   const [jobs, setJobs] = useState<Job[]>([]);
   const jobsRef = useRef<Job[]>([]);
@@ -24,6 +29,9 @@ export default function CapturePage() {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Optional backdating: when set, overrides the server's "now" timestamp.
+  const [showTime, setShowTime] = useState(false);
+  const [customTime, setCustomTime] = useState("");
 
   // Audio recording state
   const [recording, setRecording] = useState(false);
@@ -32,19 +40,21 @@ export default function CapturePage() {
   const chunksRef = useRef<Blob[]>([]);
   const recordTimerRef = useRef<number | null>(null);
 
-  // On mount, recover any entries still processing in the backend (e.g. after
-  // navigating away and back, or a reload) so their progress reappears.
+  // On mount, seed the "Recent" list from the latest entries (any status) so it
+  // survives navigating away and back, or a reload — and still shows what was
+  // just done, not only what's mid-flight. Anything still processing keeps
+  // polling below.
   useEffect(() => {
-    listEntries(20)
+    listEntries(MAX_RECENT)
       .then((entries) => {
-        const inflight: Job[] = entries
-          .filter((e) => e.status !== "done" && e.status !== "error")
-          .map((e) => ({ id: e.id, kind: e.kind, status: e.status, title: e.title }));
-        if (inflight.length === 0) return;
-        setJobs((prev) => {
-          const ids = new Set(prev.map((j) => j.id));
-          return [...inflight.filter((j) => !ids.has(j.id)), ...prev];
-        });
+        const recent: Job[] = entries.map((e) => ({
+          id: e.id,
+          kind: e.kind,
+          status: e.status,
+          title: e.title,
+          error: (e.meta as Record<string, unknown> | null)?.error as string | undefined,
+        }));
+        setJobs(recent);
       })
       .catch(() => {});
   }, []);
@@ -128,14 +138,22 @@ export default function CapturePage() {
       if (text.trim()) fd.append("text", text.trim());
       if (hint.trim()) fd.append("hint", hint.trim());
       if ((mode === "image" || mode === "audio") && file) fd.append("file", file);
+      if (customTime) {
+        // datetime-local has minute precision; normalize to seconds.
+        fd.append("occurred_at", customTime.length === 16 ? `${customTime}:00` : customTime);
+      }
       const entry = await createEntry(fd);
-      setJobs((prev) => [
-        { id: entry.id, kind: entry.kind, status: entry.status, title: entry.title },
-        ...prev,
-      ]);
+      setJobs((prev) =>
+        [
+          { id: entry.id, kind: entry.kind, status: entry.status, title: entry.title },
+          ...prev.filter((j) => j.id !== entry.id),
+        ].slice(0, MAX_RECENT),
+      );
       setText("");
       setHint("");
       setFile(null);
+      setShowTime(false);
+      setCustomTime("");
       // Ask once for notification permission so we can alert on completion.
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
         Notification.requestPermission().catch(() => {});
@@ -187,10 +205,7 @@ export default function CapturePage() {
       for (const r of results) {
         if (r && isTerminal(r.status) && !handledRef.current.has(r.id)) {
           handledRef.current.add(r.id);
-          if (r.status === "done") {
-            notifyDone(r.title);
-            setTimeout(() => dismissJob(r.id), 6000);
-          }
+          if (r.status === "done") notifyDone(r.title);
         }
       }
     }, 1200);
@@ -325,9 +340,7 @@ export default function CapturePage() {
                 {Math.floor(recordSec / 60)}:{String(recordSec % 60).padStart(2, "0")}
               </div>
             </div>
-            {file && filePreview && (
-              <audio controls src={filePreview} className="w-full" />
-            )}
+            {file && filePreview && <AudioPlayer src={filePreview} />}
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -339,6 +352,38 @@ export default function CapturePage() {
         )}
 
         {error && <div className="mt-3 text-sm text-amber">{error}</div>}
+
+        <div className="mt-4 text-xs">
+          {!showTime ? (
+            <button
+              type="button"
+              onClick={() => setShowTime(true)}
+              className="text-ink-faint hover:text-amber transition-colors"
+            >
+              {t("capture.customTime.toggle")}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-ink-faint">{t("capture.customTime.label")}</span>
+              <input
+                type="datetime-local"
+                value={customTime}
+                onChange={(e) => setCustomTime(e.target.value)}
+                className="input-clean text-xs text-ink py-1"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTime(false);
+                  setCustomTime("");
+                }}
+                className="text-ink-faint hover:text-amber transition-colors"
+              >
+                {t("capture.customTime.clear")}
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="mt-5 flex items-center justify-between border-t hairline pt-4">
           <div className="text-xs text-ink-faint">
@@ -354,7 +399,11 @@ export default function CapturePage() {
         </div>
       </form>
 
-      <ProcessingTray jobs={jobs} onDismiss={dismissJob} />
+      <ProcessingTray
+        jobs={jobs}
+        onDismiss={dismissJob}
+        onOpen={(id) => navigate(`/timeline?entry=${id}`)}
+      />
 
       <OnThisDay refreshKey={memoriesKey} onOpen={setOpenId} />
 

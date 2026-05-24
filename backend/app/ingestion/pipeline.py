@@ -167,15 +167,27 @@ def fetch_entry(entry_id: int) -> dict | None:
 
 def delete_entry(entry_id: int) -> bool:
     settings = get_settings()
-    row = get_conn().execute("SELECT source_path FROM entries WHERE id = ?", (entry_id,)).fetchone()
+    row = get_conn().execute(
+        "SELECT source_path, meta_json FROM entries WHERE id = ?", (entry_id,)
+    ).fetchone()
     if row is None:
         return False
     with transaction() as conn:
         conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
-    if row["source_path"]:
+
+    # Remove on-disk artifacts so they don't become orphans: the original
+    # upload plus the generated thumbnail (stored under meta['thumbnail']).
+    rels = [row["source_path"]]
+    if row["meta_json"]:
         try:
-            (settings.data_path / row["source_path"]).unlink(missing_ok=True)
+            rels.append(json.loads(row["meta_json"]).get("thumbnail"))
         except Exception:
             pass
+    for rel in rels:
+        if rel:
+            try:
+                (settings.data_path / rel).unlink(missing_ok=True)
+            except Exception:
+                pass
     return True
