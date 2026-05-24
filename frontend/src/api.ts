@@ -79,3 +79,82 @@ export async function search(query: string, kind?: EntryKind): Promise<SearchHit
   });
   return resp.hits;
 }
+
+// ───────────────────────── Settings ─────────────────────────
+
+export type Capability = "vision" | "title" | "embed" | "transcribe";
+
+export interface ProviderInfo {
+  label: string;
+  caps: Capability[];
+  api_key_set: boolean;
+  models: Record<string, string>;
+}
+
+export interface CustomProvider {
+  id: string;
+  label?: string;
+  base_url?: string;
+  api_key?: string;
+  api_key_set?: boolean;
+  text_model?: string;
+  vision_model?: string;
+  embedding_model?: string;
+  embedding_dim?: number;
+  transcribe_model?: string;
+  caps: Capability[];
+}
+
+export interface CatalogItem {
+  id: string;
+  label: string;
+  caps: Capability[];
+}
+
+export interface SettingsState {
+  ai_provider: string;
+  embedding_provider: string;
+  transcribe_provider: string;
+  providers: Record<string, ProviderInfo>;
+  custom_providers: CustomProvider[];
+  catalog: CatalogItem[];
+  embedding: { locked_dim: number | null; entry_count: number };
+}
+
+export interface TestResult {
+  ok: boolean;
+  detail?: string;
+  error?: string;
+}
+
+export async function getSettings(): Promise<SettingsState> {
+  return request<SettingsState>("/api/settings");
+}
+
+export async function updateSettings(
+  updates: Record<string, unknown>,
+): Promise<SettingsState> {
+  return request<SettingsState>("/api/settings", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function testConnection(): Promise<Record<string, TestResult>> {
+  const resp = await request<{ results: Record<string, TestResult> }>(
+    "/api/settings/test",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+  );
+  return resp.results;
+}
+
+export async function reindexEmbeddings(
+  updates: Record<string, unknown>,
+): Promise<{ ok: boolean; dim: number; count: number }> {
+  return request("/api/settings/reindex", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+}

@@ -122,5 +122,34 @@ def get_embedding_dim() -> int | None:
     return int(row["value"]) if row else None
 
 
+def count_entries() -> int:
+    conn = get_conn()
+    return int(conn.execute("SELECT COUNT(*) AS n FROM entries").fetchone()["n"])
+
+
+def rebuild_vec_table(dim: int, items: list[tuple[int, list[float]]]) -> None:
+    """Drop and recreate entries_vec at `dim`, refill it, and lock the new dim.
+
+    Caller must compute all embeddings BEFORE invoking this, so the destructive
+    drop only runs once the new vectors are known to be good.
+    """
+    with transaction() as conn:
+        conn.execute("DROP TABLE IF EXISTS entries_vec")
+        conn.execute(
+            f"CREATE VIRTUAL TABLE entries_vec USING vec0("
+            f"entry_id INTEGER PRIMARY KEY, embedding FLOAT[{dim}])"
+        )
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES(?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (_EMBEDDING_DIM_KEY, str(dim)),
+        )
+        for entry_id, vec in items:
+            conn.execute(
+                "INSERT INTO entries_vec(entry_id, embedding) VALUES (?, ?)",
+                (entry_id, serialize_vector(vec)),
+            )
+
+
 def serialize_vector(vec: list[float]) -> bytes:
     return struct.pack(f"{len(vec)}f", *vec)
