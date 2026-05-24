@@ -117,6 +117,9 @@ const zh: Dict = {
   "capture.stage.error": "处理失败",
   "capture.done.toast": "已存入时光机",
   "capture.dismiss": "知道了",
+  "onThisDay.title": "那年今日",
+  "onThisDay.yearAgo": "去年的今天",
+  "onThisDay.yearsAgo": "{n} 年前的今天",
 
   // Timeline page
   "timeline.title": "时间之河",
@@ -288,6 +291,9 @@ const en: Dict = {
   "capture.stage.error": "Failed",
   "capture.done.toast": "Saved to your timeline",
   "capture.dismiss": "Dismiss",
+  "onThisDay.title": "On this day",
+  "onThisDay.yearAgo": "A year ago today",
+  "onThisDay.yearsAgo": "{n} years ago today",
 
   // Timeline page
   "timeline.title": "River of Time",

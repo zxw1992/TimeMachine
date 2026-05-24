@@ -82,6 +82,10 @@ export async function getEntry(id: number): Promise<EntryOut> {
   return request<EntryOut>(`/api/entries/${id}`);
 }
 
+export async function onThisDay(): Promise<TimelineItem[]> {
+  return request<TimelineItem[]>("/api/on-this-day");
+}
+
 export async function search(query: string, kind?: EntryKind): Promise<SearchHit[]> {
   const body = { query, top_k: 20, ...(kind ? { kind } : {}) };
   const resp = await request<{ hits: SearchHit[] }>("/api/search", {
