@@ -19,7 +19,7 @@
 
 ### 1. 准备 API Key
 
-至少需要 **OpenAI Key**（用于 Whisper 转写和 Embeddings），可选 Claude / Gemini 作为视觉/总结主 provider。
+本文以**阿里云百炼（Qwen）**为示例 provider：一把 Key 就能覆盖图像描述、标题**和** Embeddings，所以文字、图片、检索开箱即用。（Claude / OpenAI / Gemini，或任意 OpenAI 兼容端点也都一样用 —— 见[切换 provider](#切换-provider)。）
 
 ```bash
 cd backend
@@ -29,12 +29,20 @@ cp .env.example .env
 编辑 `backend/.env`，填入：
 
 ```env
-AI_PROVIDER=claude            # 主 provider（图像描述 + 标题）
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...         # 必填：用于 Whisper + Embeddings
+AI_PROVIDER=bailian           # 主 provider（图像描述 + 标题）
+DASHSCOPE_API_KEY=sk-...
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+DASHSCOPE_TEXT_MODEL=qwen-plus
+DASHSCOPE_VISION_MODEL=qwen-vl-plus
+DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
+DASHSCOPE_EMBEDDING_DIM=1024
+
+EMBEDDING_PROVIDER=same        # 跟随主 provider（百炼）做 Embeddings
+TRANSCRIBE_PROVIDER=openai     # 百炼不支持音频转写
+# OPENAI_API_KEY=sk-...        # 仅当你要录音时才需要（Whisper）
 ```
 
-> 如果只用 OpenAI，把 `AI_PROVIDER` 改成 `openai`，Anthropic Key 留空即可。
+> 一把百炼 Key 就能驱动文字、图片和语义检索。唯一的缺口是**音频转写**，它需要 OpenAI（Whisper）Key —— 只有用语音记录时才需要补上 `OPENAI_API_KEY`。
 
 > 也不必手动改 `.env`：密钥、provider、模型都可以之后在应用内的**设置**页（齿轮图标）配置，改完即时生效、无需重启。`.env` 只是首次启动的初始值。
 
@@ -104,29 +112,24 @@ data/
 
 ---
 
-## 用阿里云百炼（Qwen）
+## 切换 provider
 
-百炼提供 OpenAI 兼容模式，所以共用 `openai` SDK，只换 base_url。`.env` 配置：
+快速开始用的是百炼，但主 provider 是可插拔的。改 `AI_PROVIDER` 并填对应的 Key：
 
-```env
-AI_PROVIDER=bailian
-DASHSCOPE_API_KEY=sk-...
-DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1   # 按地域改
-DASHSCOPE_TEXT_MODEL=qwen-plus            # 也可填 qwen-max / qwen-turbo 等
-DASHSCOPE_VISION_MODEL=qwen-vl-plus       # 或 qwen-vl-max / qwen2.5-vl-72b-instruct
-DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
-DASHSCOPE_EMBEDDING_DIM=1024              # 切换嵌入模型时务必同步
+| Provider | `AI_PROVIDER` | Key 环境变量 | 内置能力 |
+|---|---|---|---|
+| 阿里云百炼（Qwen） | `bailian` | `DASHSCOPE_API_KEY` | 视觉 · 标题 · 嵌入 |
+| OpenAI | `openai` | `OPENAI_API_KEY` | 视觉 · 标题 · 嵌入 · 转写 |
+| Gemini | `gemini` | `GEMINI_API_KEY` | 视觉 · 标题 · 嵌入 · 转写 |
+| Claude | `claude` | `ANTHROPIC_API_KEY` | 视觉 · 标题 |
+| 任意 OpenAI 兼容端点 | 在**设置**页添加 | — | Ollama / DeepSeek / OpenRouter… |
 
-EMBEDDING_PROVIDER=same                   # 跟随主 provider（百炼）
-TRANSCRIBE_PROVIDER=openai                # 百炼兼容模式不支持音频转写，回退 OpenAI 或 gemini
-```
+三个 AI 角色相互独立——`AI_PROVIDER`（视觉 + 标题）、`EMBEDDING_PROVIDER`、`TRANSCRIBE_PROVIDER`——所以可以混搭（比如百炼做视觉、OpenAI 做转写）。把某个角色设成 `same` 即跟随主 provider；主 provider 不具备该能力时会回退到 OpenAI。模型 ID 全部可手填，代码不做白名单校验——上架新模型后直接改 `.env` 即可用。
 
-**地域 Base URL**：
+**百炼地域 Base URL**（`DASHSCOPE_BASE_URL`）：
 - 华北2（北京）：`https://dashscope.aliyuncs.com/compatible-mode/v1`
 - 新加坡：`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`
 - 美国（弗吉尼亚）：`https://dashscope-us.aliyuncs.com/compatible-mode/v1`
-
-模型 ID 全部可手填，代码不做白名单校验——百炼上架新模型后直接改 `.env` 即可用。
 
 ---
 
