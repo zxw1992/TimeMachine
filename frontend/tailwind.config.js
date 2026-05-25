@@ -16,12 +16,18 @@ export default {
         amber: "rgb(var(--c-amber) / <alpha-value>)",
         "amber-soft": "rgb(var(--c-amber-soft) / <alpha-value>)",
       },
+      // Cross-platform CJK fallbacks: macOS first, then Linux (Noto/Source Han),
+      // then Windows (SimSun / Microsoft YaHei), so each OS lands on a real CJK
+      // face instead of an ugly Latin-only generic. No bundled webfont keeps the
+      // app fully offline and the bundle small.
       fontFamily: {
         serif: [
-          '"Songti SC"',
+          '"Songti SC"', // macOS
           '"Source Han Serif SC"',
+          '"Noto Serif CJK SC"', // Linux (fontconfig name)
           '"Noto Serif SC"',
           '"Source Han Serif CN"',
+          '"SimSun"', // Windows 宋体
           '"STSong"',
           "serif",
         ],
@@ -29,7 +35,10 @@ export default {
           "-apple-system",
           "BlinkMacSystemFont",
           '"Inter"',
-          '"PingFang SC"',
+          '"PingFang SC"', // macOS
+          '"Microsoft YaHei"', // Windows
+          '"Noto Sans CJK SC"', // Linux
+          '"Segoe UI"',
           '"Helvetica Neue"',
           "system-ui",
           "sans-serif",
@@ -37,8 +46,10 @@ export default {
         mono: [
           '"SF Mono"',
           '"JetBrains Mono"',
+          '"Cascadia Code"', // Windows
           "Menlo",
           "Consolas",
+          '"DejaVu Sans Mono"', // Linux
           "monospace",
         ],
       },

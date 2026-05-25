@@ -6,7 +6,7 @@
 
 A personal multimodal memory timeline. Drop in **what you see** (images, screenshots), **what you hear** (voice recordings), and **what you think** (text), and a multimodal AI organizes them into timestamped, searchable entries you can revisit later.
 
-- **Platform**: macOS (runs locally in your browser at `localhost`)
+- **Platform**: macOS / Windows / Linux (runs locally in your browser at `localhost`)
 - **Backend**: Python 3.11 + FastAPI
 - **Storage**: SQLite + [sqlite-vec](https://github.com/asg017/sqlite-vec) for on-device vector search
 - **AI**: Pluggable providers — Claude / OpenAI / Gemini / Alibaba Bailian (Qwen), or any OpenAI-compatible endpoint (Ollama, DeepSeek, OpenRouter, …); switchable in-app
@@ -56,12 +56,22 @@ npm install
 
 ### 3. Run
 
+**macOS / Linux:**
+
 ```bash
 ./scripts/start.sh
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start.ps1
+```
+
 - Backend: http://127.0.0.1:8000 (Swagger at `/docs`)
 - Frontend: http://localhost:5173
+
+> The UI uses system fonts. On Windows/Linux it falls back to the local CJK serif (SimSun / Noto Serif CJK), so the look is close to — but not pixel-identical to — macOS. Use a Chromium-based browser or Firefox for microphone recording.
 
 ---
 

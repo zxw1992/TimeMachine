@@ -6,7 +6,7 @@
 
 把**看到的（图片/截图）**、**听到的（录音）**、**想到的（文字）**随手丢进时光机，AI 自动整理成带时间戳的条目，并支持自然语言模糊检索。
 
-- 平台：macOS（本地 Web 应用，浏览器访问 `localhost:5173`）
+- 平台：macOS / Windows / Linux（本地 Web 应用，浏览器访问 `localhost:5173`）
 - 后端：Python 3.11 + FastAPI
 - 存储：SQLite + sqlite-vec（本地向量检索）
 - AI：Claude / OpenAI / Gemini / 阿里云百炼（Qwen）可切换，也支持任意 OpenAI 兼容端点（Ollama、DeepSeek、OpenRouter…）；可在应用内切换
@@ -56,12 +56,22 @@ npm install
 
 ### 3. 启动
 
+**macOS / Linux：**
+
 ```bash
 ./scripts/start.sh
 ```
 
+**Windows（PowerShell）：**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start.ps1
+```
+
 - 后端：http://127.0.0.1:8000
 - 前端：http://localhost:5173
+
+> 界面用系统字体。Windows/Linux 会回退到本地的中文衬线字体（宋体 / Noto Serif CJK），观感接近 macOS 但非像素级一致。录音请用 Chromium 内核浏览器或 Firefox。
 
 ---
 
