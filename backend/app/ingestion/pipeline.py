@@ -50,39 +50,50 @@ def create_pending(
     *,
     kind: str,
     text: str | None,
-    file_bytes: bytes | None,
-    file_ext: str | None,
+    uploads: list[tuple[bytes, str]] | None,
     hint: str | None,
     occurred_at: str | None,
 ) -> int:
     """Persist a capture immediately as a 'queued' entry and return its id.
 
-    Only fast, local work happens here (validation, saving the upload, the
+    Only fast, local work happens here (validation, saving the upload(s), the
     thumbnail). The slow AI steps run later in `process_entry`. The user's
     raw text and hint are stashed under meta['_pending'] for that step.
+
+    `uploads` is a list of (bytes, ext); an image capture may carry several
+    files, which together form a single entry. The first file's path is kept in
+    `source_path` (for the timeline thumbnail and search) and the full set under
+    meta['images'] = [{"path", "thumb"}, ...]. Audio uses only the first file.
     """
     settings = get_settings()
     source_rel: str | None = None
     meta: dict = {}
     user_text = (text or "").strip()
+    uploads = uploads or []
 
     if kind == "text":
         if not user_text:
             raise ValueError("文字内容为空")
         body = user_text
     elif kind == "image":
-        if not file_bytes or not file_ext:
+        if not uploads:
             raise ValueError("缺少图片文件")
-        path = _save_upload(file_bytes, file_ext)
-        source_rel = str(path.relative_to(settings.data_path))
-        thumb = _make_thumbnail(path)
-        if thumb:
-            meta["thumbnail"] = thumb
+        images: list[dict] = []
+        for data, ext in uploads:
+            path = _save_upload(data, ext)
+            images.append(
+                {"path": str(path.relative_to(settings.data_path)), "thumb": _make_thumbnail(path)}
+            )
+        source_rel = images[0]["path"]
+        meta["images"] = images
+        if images[0]["thumb"]:  # primary thumbnail keeps the existing timeline behavior
+            meta["thumbnail"] = images[0]["thumb"]
         body = user_text  # filled in after AI description
     elif kind == "audio":
-        if not file_bytes or not file_ext:
+        if not uploads:
             raise ValueError("缺少音频文件")
-        path = _save_upload(file_bytes, file_ext)
+        data, ext = uploads[0]
+        path = _save_upload(data, ext)
         source_rel = str(path.relative_to(settings.data_path))
         body = user_text  # filled in after transcription
     else:
@@ -121,8 +132,17 @@ async def process_entry(entry_id: int) -> None:
 
         if kind == "image":
             update_entry_status(entry_id, "describing")
-            path = settings.data_path / row["source_path"]
-            desc = await provider.describe_image(path, hint=hint)
+            # An image entry may hold several pictures (meta['images']); describe
+            # each and combine into one body. Fall back to source_path for older
+            # single-image entries created before meta['images'] existed.
+            images = meta.get("images") or (
+                [{"path": row["source_path"]}] if row["source_path"] else []
+            )
+            parts: list[str] = []
+            for i, img in enumerate(images, 1):
+                d = await provider.describe_image(settings.data_path / img["path"], hint=hint)
+                parts.append(d if len(images) <= 1 else f"[Image {i}] {d}")
+            desc = "\n\n".join(parts)
             body = f"{user_text}\n\n[AI description] {desc}" if user_text else desc
         elif kind == "audio":
             update_entry_status(entry_id, "transcribing")
@@ -180,12 +200,17 @@ def delete_entry(entry_id: int) -> bool:
         conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
 
-    # Remove on-disk artifacts so they don't become orphans: the original
-    # upload plus the generated thumbnail (stored under meta['thumbnail']).
-    rels = [row["source_path"]]
+    # Remove on-disk artifacts so they don't become orphans: every uploaded
+    # image plus its thumbnail (meta['images']), the primary thumbnail, and the
+    # source_path (covers audio and older single-image entries).
+    rels: list[str | None] = [row["source_path"]]
     if row["meta_json"]:
         try:
-            rels.append(json.loads(row["meta_json"]).get("thumbnail"))
+            m = json.loads(row["meta_json"])
+            rels.append(m.get("thumbnail"))
+            for img in m.get("images") or []:
+                rels.append(img.get("path"))
+                rels.append(img.get("thumb"))
         except Exception:
             pass
     for rel in rels:

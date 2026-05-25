@@ -19,7 +19,7 @@ A personal multimodal memory timeline. Drop in **what you see** (images, screens
 
 ### 1. Get an API key
 
-You need at least an **OpenAI** key (used by default for Whisper transcription and embeddings). Optionally add Claude / Gemini / Bailian for vision and title generation.
+This guide uses **Alibaba Bailian (Qwen)** as the example provider: a single key covers image description, titles, **and** embeddings, so text, image, and search work out of the box. (Any of Claude / OpenAI / Gemini, or any OpenAI-compatible endpoint, works just as well — see [Switching providers](#switching-providers).)
 
 ```bash
 cd backend
@@ -29,12 +29,20 @@ cp .env.example .env
 Edit `backend/.env`:
 
 ```env
-AI_PROVIDER=claude            # primary provider (image description + title)
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...         # required: Whisper + embeddings
+AI_PROVIDER=bailian           # primary provider (image description + title)
+DASHSCOPE_API_KEY=sk-...
+DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+DASHSCOPE_TEXT_MODEL=qwen-plus
+DASHSCOPE_VISION_MODEL=qwen-vl-plus
+DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
+DASHSCOPE_EMBEDDING_DIM=1024
+
+EMBEDDING_PROVIDER=same        # reuse Bailian for embeddings
+TRANSCRIBE_PROVIDER=openai     # Bailian has no audio transcription
+# OPENAI_API_KEY=sk-...        # only needed if you record audio (Whisper)
 ```
 
-If you only have an OpenAI key, set `AI_PROVIDER=openai` and leave the Anthropic key empty.
+> A single Bailian key powers text, image, and semantic search. **Audio transcription** is the one gap — it needs an OpenAI (Whisper) key, so add `OPENAI_API_KEY` only if you use voice capture.
 
 > You don't have to edit `.env` by hand: keys, providers, and models can also be configured later in the in-app **Settings** page (gear icon) — changes apply live, no restart. `.env` just seeds the first run.
 
@@ -100,29 +108,24 @@ To back up, copy the entire `data/` directory.
 
 ---
 
-## Using Alibaba Bailian (Qwen)
+## Switching providers
 
-Bailian exposes an OpenAI-compatible endpoint, so the same `openai` SDK is reused with a custom `base_url`. Configure in `.env`:
+The Quick Start uses Bailian, but the primary provider is pluggable. Set `AI_PROVIDER` and the matching key:
 
-```env
-AI_PROVIDER=bailian
-DASHSCOPE_API_KEY=sk-...
-DASHSCOPE_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-DASHSCOPE_TEXT_MODEL=qwen-plus
-DASHSCOPE_VISION_MODEL=qwen-vl-plus
-DASHSCOPE_EMBEDDING_MODEL=text-embedding-v3
-DASHSCOPE_EMBEDDING_DIM=1024
+| Provider | `AI_PROVIDER` | Key env var | Built-in capabilities |
+|---|---|---|---|
+| Alibaba Bailian (Qwen) | `bailian` | `DASHSCOPE_API_KEY` | vision · title · embed |
+| OpenAI | `openai` | `OPENAI_API_KEY` | vision · title · embed · transcribe |
+| Gemini | `gemini` | `GEMINI_API_KEY` | vision · title · embed · transcribe |
+| Claude | `claude` | `ANTHROPIC_API_KEY` | vision · title |
+| Any OpenAI-compatible | add in **Settings** | — | Ollama / DeepSeek / OpenRouter … |
 
-EMBEDDING_PROVIDER=same
-TRANSCRIBE_PROVIDER=openai    # Bailian compat mode has no audio transcription
-```
+The three AI roles are independent — `AI_PROVIDER` (vision + title), `EMBEDDING_PROVIDER`, `TRANSCRIBE_PROVIDER` — so you can mix providers (e.g. Bailian for vision, OpenAI for transcription). Set a role to `same` to reuse the primary; if the primary can't do that job, it falls back to OpenAI. Model IDs are passed through verbatim — no allowlist in code, so new models work as soon as they're available.
 
-**Region base URLs**:
+**Bailian region endpoints** (`DASHSCOPE_BASE_URL`):
 - Beijing: `https://dashscope.aliyuncs.com/compatible-mode/v1`
 - Singapore: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`
 - US (Virginia): `https://dashscope-us.aliyuncs.com/compatible-mode/v1`
-
-Model IDs are passed through verbatim — no allowlist in code, so new Qwen models work as soon as they're available.
 
 ---
 

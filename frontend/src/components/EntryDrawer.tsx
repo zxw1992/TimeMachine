@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { deleteEntry, getEntry, type EntryOut } from "../api";
+import { deleteEntry, entryImages, getEntry, type EntryOut } from "../api";
 import { hhmm, longDate } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
@@ -75,10 +75,7 @@ export default function EntryDrawer({
   }, [entryId, prevId, nextId, onClose, onSelect]);
 
   const open = entryId != null;
-  const thumb =
-    entry?.meta && typeof entry.meta["thumbnail"] === "string"
-      ? `/files/${entry.meta["thumbnail"]}`
-      : null;
+  const images = entry ? entryImages(entry) : [];
 
   async function handleDelete() {
     if (!entry) return;
@@ -168,19 +165,25 @@ export default function EntryDrawer({
                 </h2>
               )}
 
-              {entry.kind === "image" && entry.source_url && (
-                <a
-                  href={entry.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block mb-6 overflow-hidden rounded-lg hairline border"
-                >
-                  <img
-                    src={entry.source_url}
-                    alt=""
-                    className="block w-full h-auto"
-                  />
-                </a>
+              {entry.kind === "image" && images.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  {images.length > 1 && (
+                    <div className="mono-time text-xs text-ink-faint">
+                      {t("entry.imageCount", { n: images.length })}
+                    </div>
+                  )}
+                  {images.map((img) => (
+                    <a
+                      key={img.full}
+                      href={img.full}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block overflow-hidden rounded-lg hairline border"
+                    >
+                      <img src={img.full} alt="" className="block w-full h-auto" />
+                    </a>
+                  ))}
+                </div>
               )}
 
               {entry.kind === "audio" && entry.source_url && (

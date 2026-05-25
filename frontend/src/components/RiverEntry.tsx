@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { EntryOut } from "../api";
+import { entryImages, type EntryOut } from "../api";
 import { hhmm } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
@@ -17,11 +17,7 @@ export default function RiverEntry({
 }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const thumb =
-    entry.meta && typeof entry.meta["thumbnail"] === "string"
-      ? `/files/${entry.meta["thumbnail"]}`
-      : null;
-  const fullImage = entry.kind === "image" && entry.source_url ? entry.source_url : null;
+  const images = entryImages(entry);
 
   const previewBody =
     entry.body.length > 140 ? entry.body.slice(0, 140).replace(/\n/g, " ") + "…" : entry.body;
@@ -49,21 +45,32 @@ export default function RiverEntry({
             )}
           </div>
 
-          {/* Image: thumbnail → click to expand to full size */}
-          {fullImage && (
-            <button
-              onClick={() => setExpanded((e) => !e)}
-              className="block mb-3 overflow-hidden rounded-md hairline border
-                         hover:opacity-95 transition-opacity"
-            >
-              <img
-                src={expanded ? fullImage : thumb || fullImage}
-                alt=""
-                className={`block transition-all duration-300 ${
-                  expanded ? "max-h-[480px]" : "h-[140px]"
-                } w-auto object-cover`}
-              />
-            </button>
+          {/* Images: thumbnails in a row → click to expand to full size. One
+              entry can hold several photos. */}
+          {images.length > 0 && (
+            <div className={`mb-3 ${expanded ? "space-y-2" : "flex flex-wrap gap-2"}`}>
+              {images.map((img) => (
+                <button
+                  key={img.full}
+                  onClick={() => setExpanded((e) => !e)}
+                  className="block overflow-hidden rounded-md hairline border
+                             hover:opacity-95 transition-opacity"
+                >
+                  <img
+                    src={expanded ? img.full : img.thumb || img.full}
+                    alt=""
+                    className={`block transition-all duration-300 ${
+                      expanded ? "max-h-[480px] w-auto" : "h-[140px] w-auto object-cover"
+                    }`}
+                  />
+                </button>
+              ))}
+              {!expanded && images.length > 1 && (
+                <span className="self-center mono-time text-xs text-ink-faint">
+                  {t("entry.imageCount", { n: images.length })}
+                </span>
+              )}
+            </div>
           )}
 
           {/* Audio bar */}
