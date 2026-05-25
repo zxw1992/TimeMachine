@@ -162,28 +162,27 @@ export default function CapturePage() {
         : null;
       const trimmedText = text.trim();
       const trimmedHint = hint.trim();
-      // One request per file: an image batch creates one entry each; audio is a
-      // single file; text has no file at all.
-      const files: (File | null)[] =
-        mode === "image" ? images : mode === "audio" ? [file] : [null];
-
-      for (const f of files) {
-        const fd = new FormData();
-        fd.append("kind", mode);
-        if (trimmedText) fd.append("text", trimmedText);
-        if (trimmedHint) fd.append("hint", trimmedHint);
-        if (f) fd.append("file", f);
-        if (occurredAt) fd.append("occurred_at", occurredAt);
-        const entry = await createEntry(fd);
-        const job: Job = {
-          id: entry.id,
-          kind: entry.kind,
-          status: entry.status,
-          title: entry.title,
-        };
-        // Add each as it lands, so a partial batch is still reflected on error.
-        setJobs((prev) => [job, ...prev.filter((j) => j.id !== job.id)].slice(0, MAX_RECENT));
+      // One entry per capture. An image batch attaches all picked files to a
+      // single entry (one record can span several photos); audio sends its one
+      // file; text sends none.
+      const fd = new FormData();
+      fd.append("kind", mode);
+      if (trimmedText) fd.append("text", trimmedText);
+      if (trimmedHint) fd.append("hint", trimmedHint);
+      if (occurredAt) fd.append("occurred_at", occurredAt);
+      if (mode === "image") {
+        for (const f of images) fd.append("files", f);
+      } else if (mode === "audio" && file) {
+        fd.append("files", file);
       }
+      const entry = await createEntry(fd);
+      const job: Job = {
+        id: entry.id,
+        kind: entry.kind,
+        status: entry.status,
+        title: entry.title,
+      };
+      setJobs((prev) => [job, ...prev.filter((j) => j.id !== job.id)].slice(0, MAX_RECENT));
 
       setText("");
       setHint("");

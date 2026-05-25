@@ -22,6 +22,44 @@ export interface EntryOut {
   status: EntryStatus;
 }
 
+/** A resolved image with URLs for its full file and (optional) thumbnail. */
+export interface EntryImage {
+  full: string;
+  thumb: string | null;
+}
+
+/**
+ * All images attached to an entry, newest model first. An image entry can span
+ * several photos (meta.images); older single-image entries (no meta.images)
+ * fall back to source_url + meta.thumbnail.
+ */
+export function entryImages(entry: {
+  kind: EntryKind;
+  source_url: string | null;
+  meta: Record<string, unknown> | null;
+}): EntryImage[] {
+  const raw = entry.meta?.["images"];
+  if (Array.isArray(raw) && raw.length > 0) {
+    return raw
+      .filter(
+        (im): im is { path: string; thumb?: string | null } =>
+          !!im && typeof (im as { path?: unknown }).path === "string",
+      )
+      .map((im) => ({
+        full: `/files/${im.path}`,
+        thumb: im.thumb ? `/files/${im.thumb}` : null,
+      }));
+  }
+  if (entry.kind === "image" && entry.source_url) {
+    const thumb =
+      entry.meta && typeof entry.meta["thumbnail"] === "string"
+        ? `/files/${entry.meta["thumbnail"]}`
+        : null;
+    return [{ full: entry.source_url, thumb }];
+  }
+  return [];
+}
+
 export interface TimelineItem {
   id: number;
   occurred_at: string;

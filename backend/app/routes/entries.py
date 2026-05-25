@@ -41,27 +41,31 @@ async def create_entry(
     text: Annotated[str | None, Form()] = None,
     hint: Annotated[str | None, Form()] = None,
     occurred_at: Annotated[str | None, Form()] = None,
-    file: Annotated[UploadFile | None, File()] = None,
+    files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> EntryOut:
     if kind not in {"text", "image", "audio"}:
         raise HTTPException(400, f"非法 kind: {kind}")
 
-    file_bytes: bytes | None = None
-    file_ext: str | None = None
-    if file is not None:
-        file_bytes = await file.read()
-        if file.filename:
-            dot = file.filename.rfind(".")
-            file_ext = file.filename[dot:].lower() if dot != -1 else ""
-        if not file_ext:
-            file_ext = ".png" if kind == "image" else ".webm"
+    # An image capture may carry several files that form one entry; audio sends
+    # one. Read them all into (bytes, ext) pairs for the pipeline.
+    uploads: list[tuple[bytes, str]] = []
+    for f in files or []:
+        data = await f.read()
+        if not data:
+            continue
+        ext = ""
+        if f.filename:
+            dot = f.filename.rfind(".")
+            ext = f.filename[dot:].lower() if dot != -1 else ""
+        if not ext:
+            ext = ".png" if kind == "image" else ".webm"
+        uploads.append((data, ext))
 
     try:
         entry_id = create_pending(
             kind=kind,
             text=text,
-            file_bytes=file_bytes,
-            file_ext=file_ext,
+            uploads=uploads,
             hint=hint,
             occurred_at=occurred_at,
         )
