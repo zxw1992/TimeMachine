@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createEntry, getEntry, listEntries } from "../api";
 import AudioPlayer from "../components/AudioPlayer";
 import EntryDrawer from "../components/EntryDrawer";
+import OnboardingCard from "../components/OnboardingCard";
 import OnThisDay from "../components/OnThisDay";
 import ProcessingTray, { type Job } from "../components/ProcessingTray";
 import { useI18n } from "../lib/i18n";
@@ -23,6 +24,7 @@ export default function CapturePage() {
   const handledRef = useRef<Set<number>>(new Set());
   const [openId, setOpenId] = useState<number | null>(null);
   const [memoriesKey, setMemoriesKey] = useState(0);
+  const [onboardKey, setOnboardKey] = useState(0);
   const [text, setText] = useState("");
   const [hint, setHint] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -154,6 +156,7 @@ export default function CapturePage() {
       setFile(null);
       setShowTime(false);
       setCustomTime("");
+      setOnboardKey((k) => k + 1); // first capture dismisses the onboarding card
       // Ask once for notification permission so we can alert on completion.
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
         Notification.requestPermission().catch(() => {});
@@ -221,6 +224,8 @@ export default function CapturePage() {
     <div className="max-w-compose mx-auto px-6 pt-10 pb-24 animate-fade-in">
       <h1 className="serif-title text-3xl text-ink mb-2">{t("capture.title")}</h1>
       <p className="text-sm text-ink-faint mb-8">{t("capture.subtitle")}</p>
+
+      <OnboardingCard refreshKey={onboardKey} />
 
       {/* Mode toggles: minimal ink dots */}
       <div className="flex items-center gap-6 mb-6">

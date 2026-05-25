@@ -125,6 +125,17 @@ const zh: Dict = {
   "onThisDay.yearAgo": "去年的今天",
   "onThisDay.yearsAgo": "{n} 年前的今天",
 
+  // First-run onboarding
+  "onboard.title": "欢迎来到时光机",
+  "onboard.subtitle": "两步就能开始记录。",
+  "onboard.dismiss": "跳过引导",
+  "onboard.step1.title": "填入 AI 的 API Key",
+  "onboard.step1.desc": "时光机用 AI 自动生成标题、描述和检索索引。先到设置里配置一个供应商。",
+  "onboard.step1.cta": "去设置",
+  "onboard.step1.done": "已配置密钥",
+  "onboard.step2.title": "记下第一条",
+  "onboard.step2.desc": "在下面写一句此刻在想的事，存进时光机试试。",
+
   // Timeline page
   "timeline.title": "时间之河",
   "timeline.range.today": "今日",
@@ -302,6 +313,17 @@ const en: Dict = {
   "onThisDay.title": "On this day",
   "onThisDay.yearAgo": "A year ago today",
   "onThisDay.yearsAgo": "{n} years ago today",
+
+  // First-run onboarding
+  "onboard.title": "Welcome to Time Machine",
+  "onboard.subtitle": "Two steps to start capturing.",
+  "onboard.dismiss": "Skip",
+  "onboard.step1.title": "Add an AI API key",
+  "onboard.step1.desc": "Time Machine uses AI to auto-generate titles, descriptions, and the search index. Configure a provider in Settings first.",
+  "onboard.step1.cta": "Open Settings",
+  "onboard.step1.done": "Key configured",
+  "onboard.step2.title": "Capture your first memory",
+  "onboard.step2.desc": "Write a line about what's on your mind below and save it to your timeline.",
 
   // Timeline page
   "timeline.title": "River of Time",
