@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { createEntry, getEntry, listEntries } from "../api";
 import AudioPlayer from "../components/AudioPlayer";
 import EntryDrawer from "../components/EntryDrawer";
+import ErrorBanner from "../components/ErrorBanner";
 import OnboardingCard from "../components/OnboardingCard";
 import OnThisDay from "../components/OnThisDay";
 import ProcessingTray, { type Job } from "../components/ProcessingTray";
@@ -13,6 +14,8 @@ type Mode = "text" | "image" | "audio";
 const isTerminal = (s: string) => s === "done" || s === "error";
 
 const MAX_RECENT = 5;
+// Persist the in-progress note so a tab switch / reload doesn't lose it.
+const DRAFT_KEY = "aitm-draft-text";
 
 export default function CapturePage() {
   const { t } = useI18n();
@@ -25,12 +28,16 @@ export default function CapturePage() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [memoriesKey, setMemoriesKey] = useState(0);
   const [onboardKey, setOnboardKey] = useState(0);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => localStorage.getItem(DRAFT_KEY) ?? "");
   const [hint, setHint] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
+  // Image mode supports a batch: each picked image becomes its own entry.
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [micError, setMicError] = useState<string | null>(null);
   // Optional backdating: when set, overrides the server's "now" timestamp.
   const [showTime, setShowTime] = useState(false);
   const [customTime, setCustomTime] = useState("");
@@ -71,6 +78,19 @@ export default function CapturePage() {
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // Object URLs for the image batch; revoked when the batch changes.
+  useEffect(() => {
+    const urls = images.map((f) => URL.createObjectURL(f));
+    setImagePreviews(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [images]);
+
+  // Keep the draft in localStorage so switching tabs / reloading doesn't lose it.
+  useEffect(() => {
+    if (text.trim()) localStorage.setItem(DRAFT_KEY, text);
+    else localStorage.removeItem(DRAFT_KEY);
+  }, [text]);
+
   // Global paste handler: pasting an image auto-switches to image mode.
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
@@ -81,7 +101,7 @@ export default function CapturePage() {
           const f = it.getAsFile();
           if (f) {
             setMode("image");
-            setFile(f);
+            setImages((prev) => [...prev, f]);
             e.preventDefault();
             return;
           }
@@ -117,7 +137,7 @@ export default function CapturePage() {
       setRecordSec(0);
       recordTimerRef.current = window.setInterval(() => setRecordSec((s) => s + 1), 1000);
     } catch (e: any) {
-      setError(t("capture.audio.micError", { msg: e.message }));
+      setMicError(t("capture.audio.micError", { msg: e.message }));
     }
   }
 
@@ -130,42 +150,63 @@ export default function CapturePage() {
     }
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function submitCapture() {
     setError(null);
     setSubmitting(true);
     try {
-      const fd = new FormData();
-      fd.append("kind", mode);
-      if (text.trim()) fd.append("text", text.trim());
-      if (hint.trim()) fd.append("hint", hint.trim());
-      if ((mode === "image" || mode === "audio") && file) fd.append("file", file);
-      if (customTime) {
-        // datetime-local has minute precision; normalize to seconds.
-        fd.append("occurred_at", customTime.length === 16 ? `${customTime}:00` : customTime);
+      // datetime-local has minute precision; normalize to seconds.
+      const occurredAt = customTime
+        ? customTime.length === 16
+          ? `${customTime}:00`
+          : customTime
+        : null;
+      const trimmedText = text.trim();
+      const trimmedHint = hint.trim();
+      // One request per file: an image batch creates one entry each; audio is a
+      // single file; text has no file at all.
+      const files: (File | null)[] =
+        mode === "image" ? images : mode === "audio" ? [file] : [null];
+
+      for (const f of files) {
+        const fd = new FormData();
+        fd.append("kind", mode);
+        if (trimmedText) fd.append("text", trimmedText);
+        if (trimmedHint) fd.append("hint", trimmedHint);
+        if (f) fd.append("file", f);
+        if (occurredAt) fd.append("occurred_at", occurredAt);
+        const entry = await createEntry(fd);
+        const job: Job = {
+          id: entry.id,
+          kind: entry.kind,
+          status: entry.status,
+          title: entry.title,
+        };
+        // Add each as it lands, so a partial batch is still reflected on error.
+        setJobs((prev) => [job, ...prev.filter((j) => j.id !== job.id)].slice(0, MAX_RECENT));
       }
-      const entry = await createEntry(fd);
-      setJobs((prev) =>
-        [
-          { id: entry.id, kind: entry.kind, status: entry.status, title: entry.title },
-          ...prev.filter((j) => j.id !== entry.id),
-        ].slice(0, MAX_RECENT),
-      );
+
       setText("");
       setHint("");
       setFile(null);
+      setImages([]);
       setShowTime(false);
       setCustomTime("");
+      localStorage.removeItem(DRAFT_KEY);
       setOnboardKey((k) => k + 1); // first capture dismisses the onboarding card
       // Ask once for notification permission so we can alert on completion.
       if (typeof Notification !== "undefined" && Notification.permission === "default") {
         Notification.requestPermission().catch(() => {});
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    submitCapture();
   }
 
   function dismissJob(id: number) {
@@ -218,7 +259,9 @@ export default function CapturePage() {
 
   const canSubmit =
     !submitting &&
-    ((mode === "text" && text.trim().length > 0) || (mode !== "text" && file !== null));
+    ((mode === "text" && text.trim().length > 0) ||
+      (mode === "image" && images.length > 0) ||
+      (mode === "audio" && file !== null));
 
   return (
     <div className="max-w-compose mx-auto px-6 pt-10 pb-24 animate-fade-in">
@@ -236,6 +279,7 @@ export default function CapturePage() {
             onClick={() => {
               setMode(m);
               setFile(null);
+              setImages([]);
             }}
             className={`group flex items-center gap-2 transition-colors duration-200 ${
               mode === m ? "text-ink" : "text-ink-faint hover:text-ink-muted"
@@ -266,7 +310,7 @@ export default function CapturePage() {
 
         {mode === "image" && (
           <div>
-            {!filePreview ? (
+            {images.length === 0 ? (
               <label
                 className="block border border-dashed hairline rounded-lg p-12 text-center cursor-pointer
                            hover:border-amber hover:bg-amber/[0.03] transition-all duration-200"
@@ -274,30 +318,60 @@ export default function CapturePage() {
                 <input
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) =>
+                    setImages((prev) => [...prev, ...Array.from(e.target.files ?? [])])
+                  }
                 />
                 <div className="text-ink-muted mb-2 serif-title">{t("capture.image.drop")}</div>
                 <div className="text-xs text-ink-faint">{t("capture.image.paste")}</div>
               </label>
             ) : (
               <div className="space-y-3">
-                <div className="relative group">
-                  <img
-                    src={filePreview}
-                    alt=""
-                    className="max-h-[320px] rounded-lg hairline border mx-auto"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFile(null)}
-                    className="absolute top-2 right-2 px-2 py-1 text-xs rounded-md
-                               bg-paper/80 backdrop-blur text-ink-muted hover:text-amber
-                               opacity-0 group-hover:opacity-100 transition-opacity"
+                <div className="grid grid-cols-3 gap-2">
+                  {imagePreviews.map((src, i) => (
+                    <div key={src} className="relative group aspect-square">
+                      <img
+                        src={src}
+                        alt=""
+                        className="w-full h-full object-cover rounded-lg hairline border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}
+                        aria-label={t("capture.image.removeOne")}
+                        className="absolute top-1 right-1 w-6 h-6 grid place-items-center text-xs rounded-md
+                                   bg-paper/80 backdrop-blur text-ink-muted hover:text-amber
+                                   opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  {/* Add-more tile */}
+                  <label
+                    className="aspect-square grid place-items-center border border-dashed hairline rounded-lg
+                               cursor-pointer text-ink-faint hover:border-amber hover:text-amber
+                               hover:bg-amber/[0.03] transition-all duration-200"
                   >
-                    {t("capture.image.replace")}
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) =>
+                        setImages((prev) => [...prev, ...Array.from(e.target.files ?? [])])
+                      }
+                    />
+                    <span className="text-2xl leading-none">＋</span>
+                  </label>
                 </div>
+                {images.length > 1 && (
+                  <p className="text-xs text-ink-faint">
+                    {t("capture.image.batchHint", { n: images.length })}
+                  </p>
+                )}
                 <input
                   value={hint}
                   onChange={(e) => setHint(e.target.value)}
@@ -356,7 +430,8 @@ export default function CapturePage() {
           </div>
         )}
 
-        {error && <div className="mt-3 text-sm text-amber">{error}</div>}
+        {micError && <div className="mt-3 text-sm text-amber">{micError}</div>}
+        {error != null && <ErrorBanner error={error} onRetry={submitCapture} />}
 
         <div className="mt-4 text-xs">
           {!showTime ? (

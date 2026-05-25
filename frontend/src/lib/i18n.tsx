@@ -100,6 +100,8 @@ const zh: Dict = {
   "capture.image.hint": "可选：补充上下文（在哪儿看到的）",
   "capture.image.note": "可选：你自己的批注",
   "capture.image.replace": "换一张",
+  "capture.image.removeOne": "移除这张",
+  "capture.image.batchHint": "将分别存为 {n} 条记忆",
   "capture.audio.note": "可选：你的批注",
   "capture.audio.start": "开始录音",
   "capture.audio.stop": "停止录音",
@@ -200,6 +202,18 @@ const zh: Dict = {
   "search.empty.title": "没有匹配的记忆。",
   "search.empty.hint": "换个描述试试，AI 会按语义匹配。",
   "search.found": "找到 {n} 条相关记忆",
+
+  // Friendly errors
+  "error.network": "连不上服务，请确认后端正在运行后重试。",
+  "error.noKey": "还没有配置 {provider} 的 API Key，请先到设置里填写。",
+  "error.auth": "API Key 无效或权限不足，请到设置里检查。",
+  "error.customConfig": "自定义供应商配置不完整（缺少 Base URL），请到设置里补全。",
+  "error.rateLimit": "请求太频繁了，稍等片刻再试。",
+  "error.timeout": "请求超时了，请重试。",
+  "error.server": "服务出错了，请稍后重试。",
+  "error.generic": "出错了：{msg}",
+  "error.retry": "重试",
+  "error.toSettings": "去设置",
 };
 
 const en: Dict = {
@@ -289,6 +303,8 @@ const en: Dict = {
   "capture.image.hint": "Optional: add context (where you saw it)",
   "capture.image.note": "Optional: your own note",
   "capture.image.replace": "Replace",
+  "capture.image.removeOne": "Remove this image",
+  "capture.image.batchHint": "Will be saved as {n} separate memories",
   "capture.audio.note": "Optional: your note",
   "capture.audio.start": "Start recording",
   "capture.audio.stop": "Stop recording",
@@ -389,6 +405,18 @@ const en: Dict = {
   "search.empty.title": "No matching memories.",
   "search.empty.hint": "Try rephrasing — the AI matches by meaning.",
   "search.found": "Found {n} related memories",
+
+  // Friendly errors
+  "error.network": "Can't reach the server. Make sure the backend is running, then retry.",
+  "error.noKey": "No API key configured for {provider}. Add one in Settings first.",
+  "error.auth": "API key is invalid or lacks permission. Check it in Settings.",
+  "error.customConfig": "Custom provider is incomplete (missing Base URL). Complete it in Settings.",
+  "error.rateLimit": "Too many requests. Wait a moment and try again.",
+  "error.timeout": "The request timed out. Please retry.",
+  "error.server": "Something went wrong on the server. Please try again.",
+  "error.generic": "Something went wrong: {msg}",
+  "error.retry": "Retry",
+  "error.toSettings": "Open Settings",
 };
 
 const dict: Record<Lang, Dict> = { zh, en };

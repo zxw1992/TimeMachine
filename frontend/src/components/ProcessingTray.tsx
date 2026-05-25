@@ -1,4 +1,6 @@
+import { Link } from "react-router-dom";
 import type { EntryKind, EntryStatus } from "../api";
+import { classifyError } from "../lib/errors";
 import { useI18n } from "../lib/i18n";
 
 export interface Job {
@@ -73,7 +75,7 @@ export default function ProcessingTray({
                     ? job.title || t("capture.done.toast")
                     : failed
                       ? t("capture.stage.error")
-                      : t("capture.processing")}
+                      : `${t(`capture.stage.${job.status}`)}…`}
                 </span>
                 {done && (
                   <span className="mono-time text-[10px] text-amber">
@@ -83,7 +85,7 @@ export default function ProcessingTray({
               </div>
 
               {failed ? (
-                <p className="text-xs text-amber break-words">{job.error}</p>
+                <FailureNote error={job.error} />
               ) : (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {STEPS[job.kind].map((step, i) => {
@@ -125,5 +127,29 @@ export default function ProcessingTray({
       })}
       </div>
     </div>
+  );
+}
+
+/** A failed job's reason, translated to a friendly line + a Settings link
+ *  when the cause is a missing/invalid key. */
+function FailureNote({ error }: { error?: string }) {
+  const { t } = useI18n();
+  const { key, vars, configFix } = classifyError(error);
+  return (
+    <p className="text-xs text-amber break-words">
+      {t(key, vars)}
+      {configFix && (
+        <>
+          {" "}
+          <Link
+            to="/settings"
+            onClick={(e) => e.stopPropagation()}
+            className="text-ink-muted hover:text-amber underline underline-offset-2"
+          >
+            {t("error.toSettings")}
+          </Link>
+        </>
+      )}
+    </p>
   );
 }

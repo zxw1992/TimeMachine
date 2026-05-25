@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { search, type SearchHit } from "../api";
+import ErrorBanner from "../components/ErrorBanner";
 import RiverEntry from "../components/RiverEntry";
 import { useI18n } from "../lib/i18n";
 import {
@@ -23,7 +24,8 @@ export default function SearchPage() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [lastQuery, setLastQuery] = useState("");
   const [searched, setSearched] = useState(false);
   const [history, setHistory] = useState<string[]>(() => loadHistory());
   const [historyExpanded, setHistoryExpanded] = useState(false);
@@ -34,11 +36,12 @@ export default function SearchPage() {
     setLoading(true);
     setError(null);
     setSearched(true);
+    setLastQuery(trimmed);
     setHistory(addHistory(trimmed));
     try {
       setHits(await search(trimmed));
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -170,7 +173,7 @@ export default function SearchPage() {
       )}
 
       {/* Error */}
-      {error && <div className="mt-6 text-sm text-amber">{error}</div>}
+      {error != null && <ErrorBanner error={error} onRetry={() => runSearch(lastQuery)} />}
 
       {/* Results */}
       {searched && hits.length === 0 && !loading && (
