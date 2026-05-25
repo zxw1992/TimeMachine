@@ -1,0 +1,36 @@
+# Pre-commit hooks. Install once with:  pre-commit install
+# Run against everything with:           pre-commit run --all-files
+#
+# Keeps the same gates CI enforces, so problems surface before they're pushed:
+# ruff lint + pytest for the backend, tsc typecheck for the frontend.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.14
+    hooks:
+      - id: ruff
+        name: ruff (backend lint)
+        args: [--fix]
+        files: ^backend/.*\.py$
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (backend)
+        entry: bash -c 'cd backend && uv run pytest -q'
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+
+      - id: tsc
+        name: tsc (frontend typecheck)
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/.*\.tsx?$

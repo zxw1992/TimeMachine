@@ -16,6 +16,9 @@ from ..db import (
     transaction,
     update_entry_status,
 )
+from ..logging_config import get_logger
+
+log = get_logger(__name__)
 
 
 def _save_upload(file_bytes: bytes, ext: str) -> Path:
@@ -146,6 +149,7 @@ async def process_entry(entry_id: int) -> None:
                 (entry_id, serialize_vector(embedding)),
             )
     except Exception as e:  # noqa: BLE001
+        log.exception("processing failed for entry %s", entry_id)
         try:
             row = fetch_entry(entry_id)
             meta = json.loads(row["meta_json"]) if row and row["meta_json"] else {}

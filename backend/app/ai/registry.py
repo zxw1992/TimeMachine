@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable
 
 from ..config import get_settings
+from ..logging_config import get_logger
 from .base import AIProvider
+
+log = get_logger(__name__)
 
 
 class _Lazy:
@@ -176,8 +179,8 @@ async def startup_probe() -> None:
 
         await BailianProvider().embed("ping")
     except (AuthenticationError, PermissionDeniedError):
-        print(
-            "⚠ Bailian (DashScope) rejected the API key (401/403). This usually "
+        log.warning(
+            "Bailian (DashScope) rejected the API key (401/403). This usually "
             "means the key belongs to a different region than DASHSCOPE_BASE_URL.\n"
             "  Beijing    https://dashscope.aliyuncs.com/compatible-mode/v1\n"
             "  Singapore  https://dashscope-intl.aliyuncs.com/compatible-mode/v1\n"
@@ -186,7 +189,7 @@ async def startup_probe() -> None:
         )
     except Exception:
         # Offline, wrong model id, etc. — not a region problem, stay quiet.
-        pass
+        log.debug("startup_probe skipped (non-auth error)", exc_info=True)
 
 
 @lru_cache
