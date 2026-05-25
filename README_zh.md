@@ -2,13 +2,16 @@
 
 > English: [README.md](./README.md)
 
+![CI](https://github.com/zxw1992/TimeMachine/actions/workflows/ci.yml/badge.svg)
+
 把**看到的（图片/截图）**、**听到的（录音）**、**想到的（文字）**随手丢进时光机，AI 自动整理成带时间戳的条目，并支持自然语言模糊检索。
 
 - 平台：macOS（本地 Web 应用，浏览器访问 `localhost:5173`）
 - 后端：Python 3.11 + FastAPI
 - 存储：SQLite + sqlite-vec（本地向量检索）
-- AI：Claude / OpenAI / Gemini / 阿里云百炼（Qwen）可切换
+- AI：Claude / OpenAI / Gemini / 阿里云百炼（Qwen）可切换，也支持任意 OpenAI 兼容端点（Ollama、DeepSeek、OpenRouter…）；可在应用内切换
 - 前端：Vite + React + Tailwind + 自绘时间轴
+- 界面：中 / 英双语，明 / 暗 / 跟随系统主题
 
 ---
 
@@ -32,6 +35,8 @@ OPENAI_API_KEY=sk-...         # 必填：用于 Whisper + Embeddings
 ```
 
 > 如果只用 OpenAI，把 `AI_PROVIDER` 改成 `openai`，Anthropic Key 留空即可。
+
+> 也不必手动改 `.env`：密钥、provider、模型都可以之后在应用内的**设置**页（齿轮图标）配置，改完即时生效、无需重启。`.env` 只是首次启动的初始值。
 
 ### 2. 安装依赖
 
@@ -65,10 +70,13 @@ npm install
 打开 http://localhost:5173
 
 - **录入**：选择文字 / 图片 / 录音 → 输入或上传 → "保存到时光机"。
-  - 图片：支持 ⌘V 直接粘贴截图
+  - 图片：支持 ⌘V 直接粘贴截图，也可**一次选多张**（每张各存一条）
   - 录音：浏览器麦克风（首次会询问权限）
-- **时间线**：在 vis-timeline 上浏览，点节点查看详情。可切换今天/本周/本月/全部。
+  - 条目保存后立即入库，AI 在后台整理并显示分阶段进度；可选填**自定义时间**给记忆补一个发生时刻
+  - 新用户有简短的上手引导，往年的记忆会在**"那年今日"**里浮现
+- **时间线**：自绘的纵向"时间之河"按天分组，顶部有按月的**日历热力图**做鸟瞰；点标题在右侧抽屉看详情。可切换今天 / 本周 / 本月 / 全部。
 - **检索**：用自然语言描述（"上次会议提到的客户名字"、"那张菜单上的招牌菜"），返回按语义相似度排序的命中。
+- **设置**：在应用内切换 AI provider、填写密钥与模型，添加自定义 OpenAI 兼容 provider，切换语言与主题——即时生效、无需改文件或重启。
 
 ---
 
@@ -114,13 +122,11 @@ TRANSCRIBE_PROVIDER=openai                # 百炼兼容模式不支持音频转
 
 ## 关于 embedding 维度
 
-`entries_vec` 表的向量维度由**首次入库**的 embedding 模型决定（默认 `text-embedding-3-small` = 1536 维）。如果之后切换 provider（如 Gemini = 768 维），需要：
+`entries_vec` 表的向量维度由**首次入库**的 embedding 模型决定（默认 `text-embedding-3-small` = 1536 维）。如果之后要换嵌入模型（如 Gemini = 768 维），可以在**设置**页用 **Reindex**（会用新模型重嵌全部已有条目），或者清空数据库重来：
 
 ```bash
 rm backend/data/timemachine.db
 ```
-
-清空重来，或者写一个 reindex 脚本（暂未提供）。
 
 ---
 
@@ -131,6 +137,24 @@ rm backend/data/timemachine.db
 - 标签、收藏、编辑
 - 多用户、云同步、加密
 - 月/年回顾报告（AI 生成）
+
+---
+
+## 开发
+
+```bash
+cd backend && uv sync --group dev
+uv run pytest          # 后端测试
+uv run ruff check .    # lint
+
+cd ../frontend && npm run build   # 类型检查 + 构建
+```
+
+GitHub Actions 会在每次 push 和 PR 上跑后端测试与前端构建。也可以安装 pre-commit 钩子，在本地提交前跑同样的检查：
+
+```bash
+pre-commit install
+```
 
 ---
 
