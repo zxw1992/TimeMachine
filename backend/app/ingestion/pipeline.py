@@ -230,7 +230,10 @@ async def update_entry(
     if not new_body:
         raise ValueError("正文不能为空")
 
-    body_changed = new_body != row["body"]
+    # The embedding text is f"{title}\n{body}", so a title-only edit also makes
+    # the vector stale — re-embed whenever either changed (time / favorite / tags
+    # don't affect the embedding, so they don't trigger it).
+    embed_dirty = new_title != row["title"] or new_body != row["body"]
 
     if text_edit:
         with transaction() as conn:
@@ -244,9 +247,9 @@ async def update_entry(
     if tags is not None:
         set_entry_tags(entry_id, tags)
 
-    # The text edit above is committed. Re-embed on body change; an embedding
-    # failure leaves a stale vector but never loses the saved edit.
-    if body_changed:
+    # The text edit above is committed. An embedding failure leaves a stale
+    # vector but never loses the saved edit.
+    if embed_dirty:
         await reembed_entry(entry_id)
 
     return fetch_entry(entry_id)

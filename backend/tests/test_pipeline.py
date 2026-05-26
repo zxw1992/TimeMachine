@@ -150,6 +150,37 @@ def test_update_entry_edits_text_and_reembeds(fake_provider):
     assert hit["rowid"] == entry_id
 
 
+def test_reembed_triggers_on_title_or_body_only(fake_provider, monkeypatch):
+    """The embedding text includes the title, so a title-only edit must also
+    re-embed; favorite/tag-only edits must not."""
+    from app.ingestion import pipeline
+
+    entry_id = pipeline.create_pending(
+        kind="text", text="original", uploads=None, hint=None, occurred_at=None
+    )
+    asyncio.run(pipeline.process_entry(entry_id))
+
+    calls: list[int] = []
+
+    async def spy(eid):
+        calls.append(eid)
+        return True
+
+    monkeypatch.setattr(pipeline, "reembed_entry", spy)
+
+    # Title-only edit → re-embeds.
+    asyncio.run(pipeline.update_entry(entry_id, title="New Title"))
+    assert calls == [entry_id]
+
+    # Favorite / tags only → no re-embed.
+    asyncio.run(pipeline.update_entry(entry_id, favorite=True, tags=["x"]))
+    assert calls == [entry_id]
+
+    # Body edit → re-embeds again.
+    asyncio.run(pipeline.update_entry(entry_id, body="changed"))
+    assert calls == [entry_id, entry_id]
+
+
 def test_update_entry_rejects_blank_body(fake_provider):
     from app.ingestion import pipeline
 
