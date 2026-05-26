@@ -3,12 +3,14 @@ import {
   deleteEntry,
   entryImages,
   getEntry,
+  listTags,
   updateEntry,
   type EntryOut,
 } from "../api";
 import { hhmm, longDate } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
+import TagInput from "./TagInput";
 
 /** ISO timestamp → the "YYYY-MM-DDTHH:mm" form a datetime-local input wants. */
 function toLocalInput(iso: string): string {
@@ -42,6 +44,8 @@ export default function EntryDrawer({
   const [draftTitle, setDraftTitle] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [draftWhen, setDraftWhen] = useState("");
+  const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [editError, setEditError] = useState(false);
 
@@ -63,8 +67,15 @@ export default function EntryDrawer({
     setDraftTitle(entry.title ?? "");
     setDraftBody(entry.body);
     setDraftWhen(toLocalInput(entry.occurred_at));
+    setDraftTags(entry.tags);
     setEditError(false);
     setEditing(true);
+    // Lazy-load the tag pool for autocomplete the first time anyone edits.
+    if (tagSuggestions.length === 0) {
+      listTags()
+        .then((ts) => setTagSuggestions(ts.map((x) => x.name)))
+        .catch(() => {});
+    }
   }
 
   async function handleSave() {
@@ -76,6 +87,7 @@ export default function EntryDrawer({
         title: draftTitle.trim() || "",
         body: draftBody,
         occurred_at: draftWhen ? `${draftWhen}:00` : undefined,
+        tags: draftTags,
       });
       setEntry(updated);
       setEditing(false);
@@ -84,6 +96,20 @@ export default function EntryDrawer({
       setEditError(true);
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Favorite is a one-click toggle, available in both view and edit modes.
+  async function toggleFavorite() {
+    if (!entry) return;
+    const next = !entry.favorite;
+    setEntry({ ...entry, favorite: next }); // optimistic
+    try {
+      const updated = await updateEntry(entry.id, { favorite: next });
+      setEntry(updated);
+      onUpdated?.(updated);
+    } catch {
+      setEntry({ ...entry, favorite: !next }); // revert on failure
     }
   }
 
@@ -170,6 +196,19 @@ export default function EntryDrawer({
               <span className="mono-time text-xs text-ink-faint">
                 #{entry.id}
               </span>
+              <button
+                onClick={toggleFavorite}
+                className={`text-base leading-none transition-colors duration-200 ${
+                  entry.favorite
+                    ? "text-amber"
+                    : "text-ink-faint hover:text-amber"
+                }`}
+                aria-label={t(entry.favorite ? "drawer.unfavorite" : "drawer.favorite")}
+                title={t(entry.favorite ? "drawer.unfavorite" : "drawer.favorite")}
+                aria-pressed={entry.favorite}
+              >
+                {entry.favorite ? "♥" : "♡"}
+              </button>
               <div className="ml-auto flex items-center gap-1">
                 <button
                   onClick={() => prevId != null && onSelect?.(prevId)}
@@ -247,6 +286,35 @@ export default function EntryDrawer({
                   <h2 className="serif-title text-2xl text-ink leading-snug mb-6">
                     {entry.title}
                   </h2>
+                )
+              )}
+
+              {/* Tags */}
+              {editing ? (
+                <div className="mb-6">
+                  <span className="mono-time text-xs text-ink-faint tracking-wider">
+                    {t("drawer.tagsLabel")}
+                  </span>
+                  <div className="mt-1">
+                    <TagInput
+                      tags={draftTags}
+                      onChange={setDraftTags}
+                      suggestions={tagSuggestions}
+                    />
+                  </div>
+                </div>
+              ) : (
+                entry.tags.length > 0 && (
+                  <div className="mb-6 flex flex-wrap gap-1.5">
+                    {entry.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-surface2 text-ink-muted px-2.5 py-0.5 text-xs"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 )
               )}
 

@@ -149,6 +149,9 @@ const zh: Dict = {
   "timeline.count": "{n} 条记忆",
   "timeline.empty.title": "这段时间还没有记忆。",
   "timeline.empty.hint": "去“记录”页留下点什么吧。",
+  "timeline.filter.favorites": "仅收藏",
+  "timeline.filter.allTags": "全部标签",
+  "timeline.filter.clear": "清除筛选",
   "timeline.processing": "整理中…",
   "timeline.failed": "处理失败",
 
@@ -180,6 +183,14 @@ const zh: Dict = {
   "drawer.bodyLabel": "正文",
   "drawer.timeLabel": "发生时间",
   "drawer.editError": "保存失败，请重试",
+  "drawer.favorite": "收藏",
+  "drawer.unfavorite": "取消收藏",
+  "drawer.tagsLabel": "标签",
+
+  // Tags
+  "tags.label": "标签",
+  "tags.placeholder": "加标签，回车确认",
+  "tags.remove": "移除 {tag}",
 
   // River entry (shared list item)
   "entry.match": "· 相似 {pct}%",
@@ -362,6 +373,9 @@ const en: Dict = {
   "timeline.count": "{n} memories",
   "timeline.empty.title": "No memories in this period yet.",
   "timeline.empty.hint": "Head to “Capture” and jot something down.",
+  "timeline.filter.favorites": "Favorites",
+  "timeline.filter.allTags": "All tags",
+  "timeline.filter.clear": "Clear filters",
   "timeline.processing": "Processing…",
   "timeline.failed": "Failed",
 
@@ -393,6 +407,14 @@ const en: Dict = {
   "drawer.bodyLabel": "Body",
   "drawer.timeLabel": "When it happened",
   "drawer.editError": "Save failed, please retry",
+  "drawer.favorite": "Favorite",
+  "drawer.unfavorite": "Unfavorite",
+  "drawer.tagsLabel": "Tags",
+
+  // Tags
+  "tags.label": "Tags",
+  "tags.placeholder": "Add a tag, press Enter",
+  "tags.remove": "Remove {tag}",
 
   // River entry (shared list item)
   "entry.match": "· {pct}% match",

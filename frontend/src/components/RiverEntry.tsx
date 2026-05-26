@@ -38,6 +38,11 @@ export default function RiverEntry({
             {entry.title && (
               <h3 className="serif-title text-lg text-ink leading-snug">{entry.title}</h3>
             )}
+            {entry.favorite && (
+              <span className="text-amber text-sm" aria-hidden>
+                ♥
+              </span>
+            )}
             {score !== undefined && (
               <span className="mono-time text-[10px] text-amber whitespace-nowrap">
                 {t("entry.match", { pct: (score * 100).toFixed(0) })}
@@ -87,6 +92,20 @@ export default function RiverEntry({
           >
             {expanded ? entry.body : previewBody}
           </p>
+
+          {/* Tags */}
+          {entry.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {entry.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-surface2 text-ink-faint px-2 py-px text-[11px]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Toolbar */}
           <div className="mt-3 flex items-center gap-4 text-xs text-ink-faint">

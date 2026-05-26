@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
-from ..db import get_conn
+from ..db import get_conn, get_entry_tags, set_entry_tags
 from ..ingestion.pipeline import (
     create_pending,
     delete_entry,
@@ -38,6 +38,8 @@ def _row_to_out(row: dict) -> EntryOut:
         source_url=source_url,
         meta=meta,
         status=row.get("status") or "done",
+        tags=get_entry_tags(row["id"]),
+        favorite=bool(row.get("favorite")),
     )
 
 
@@ -47,6 +49,7 @@ async def create_entry(
     text: Annotated[str | None, Form()] = None,
     hint: Annotated[str | None, Form()] = None,
     occurred_at: Annotated[str | None, Form()] = None,
+    tags: Annotated[list[str] | None, Form()] = None,
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> EntryOut:
     if kind not in {"text", "image", "audio"}:
@@ -77,6 +80,10 @@ async def create_entry(
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+
+    # Tags are independent of the AI steps, so attach them right away.
+    if tags:
+        set_entry_tags(entry_id, tags)
 
     # Run the slow AI steps in the background; the client polls the entry.
     task = asyncio.create_task(process_entry(entry_id))
@@ -115,6 +122,8 @@ async def update(entry_id: int, payload: EntryUpdate) -> EntryOut:
             title=payload.title,
             body=payload.body,
             occurred_at=payload.occurred_at,
+            tags=payload.tags,
+            favorite=payload.favorite,
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e

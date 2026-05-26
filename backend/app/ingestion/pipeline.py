@@ -13,6 +13,8 @@ from ..db import (
     ensure_vec_table,
     get_conn,
     serialize_vector,
+    set_entry_tags,
+    set_favorite,
     transaction,
     update_entry_status,
 )
@@ -190,21 +192,27 @@ async def update_entry(
     title: str | None = None,
     body: str | None = None,
     occurred_at: str | None = None,
+    tags: list[str] | None = None,
+    favorite: bool | None = None,
 ) -> dict | None:
-    """Edit a finished entry's text fields, returning the updated row.
+    """Edit an entry's fields, returning the updated row.
 
-    Only title / body / occurred_at are editable. A field left as None is kept
-    as-is; an empty (whitespace) title clears it. FTS stays in sync via the
-    `entries_au` trigger. When the body changes we re-embed so semantic search
-    doesn't drift; a title-only edit skips the AI call (title is a minor signal).
+    A field left as None is kept as-is; an empty (whitespace) title clears it.
+    FTS stays in sync via the `entries_au` trigger. When the body changes we
+    re-embed so semantic search doesn't drift; a title-only edit skips the AI
+    call (title is a minor signal). `tags` / `favorite` are lightweight and may
+    be set even while the entry is still processing; editing the text fields
+    requires a finished entry.
 
-    Returns None if the entry doesn't exist. Raises ValueError if it isn't
-    'done' (can't edit one still processing) or if the body would become empty.
+    Returns None if the entry doesn't exist. Raises ValueError if a text edit is
+    attempted on an unfinished entry, or if the body would become empty.
     """
     row = fetch_entry(entry_id)
     if row is None:
         return None
-    if (row.get("status") or "done") != "done":
+
+    text_edit = title is not None or body is not None or occurred_at is not None
+    if text_edit and (row.get("status") or "done") != "done":
         raise ValueError("条目尚在处理中，暂不可编辑")
 
     new_title = row["title"] if title is None else (title.strip() or None)
@@ -215,11 +223,17 @@ async def update_entry(
 
     body_changed = new_body != row["body"]
 
-    with transaction() as conn:
-        conn.execute(
-            "UPDATE entries SET title = ?, body = ?, occurred_at = ? WHERE id = ?",
-            (new_title, new_body, new_occurred, entry_id),
-        )
+    if text_edit:
+        with transaction() as conn:
+            conn.execute(
+                "UPDATE entries SET title = ?, body = ?, occurred_at = ? WHERE id = ?",
+                (new_title, new_body, new_occurred, entry_id),
+            )
+
+    if favorite is not None:
+        set_favorite(entry_id, favorite)
+    if tags is not None:
+        set_entry_tags(entry_id, tags)
 
     # The text edit above is committed. Re-embed on body change; an embedding
     # failure leaves a stale vector but never loses the saved edit.
@@ -254,6 +268,8 @@ def delete_entry(entry_id: int) -> bool:
     with transaction() as conn:
         conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
+        # entry_tags rows cascade with the entry; drop any now-orphaned tags.
+        conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM entry_tags)")
 
     # Remove on-disk artifacts so they don't become orphans: every uploaded
     # image plus its thumbnail (meta['images']), the primary thumbnail, and the

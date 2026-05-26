@@ -5,7 +5,7 @@ import json
 from fastapi import APIRouter, HTTPException
 
 from ..ai.registry import get_provider
-from ..db import get_conn, get_embedding_dim, serialize_vector
+from ..db import get_conn, get_embedding_dim, get_entry_tags, serialize_vector
 from ..schemas import EntryOut, SearchHit, SearchRequest, SearchResponse
 
 router = APIRouter(prefix="/api/search", tags=["search"])
@@ -28,6 +28,9 @@ def _row_to_out(row: dict) -> EntryOut:
         body=row["body"],
         source_url=source_url,
         meta=meta,
+        status=row.get("status") or "done",
+        tags=get_entry_tags(row["id"]),
+        favorite=bool(row.get("favorite")),
     )
 
 

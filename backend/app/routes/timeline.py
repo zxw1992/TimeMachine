@@ -4,7 +4,7 @@ import json
 
 from fastapi import APIRouter, Query
 
-from ..db import get_conn
+from ..db import get_conn, get_tags_for_entries
 from ..schemas import TimelineItem
 
 router = APIRouter(prefix="/api/timeline", tags=["timeline"])
@@ -20,24 +20,38 @@ async def list_timeline(
     from_: str | None = Query(None, alias="from"),
     to: str | None = Query(None),
     kind: str | None = Query(None),
+    tag: str | None = Query(None),
+    favorite: bool = Query(False),
     limit: int = Query(500, le=2000),
     order: str = Query("asc", pattern="^(asc|desc)$"),
 ) -> list[TimelineItem]:
-    sql = "SELECT id, occurred_at, kind, title, body, source_path, meta_json, status FROM entries WHERE 1=1"
+    sql = (
+        "SELECT e.id, e.occurred_at, e.kind, e.title, e.body, e.source_path, "
+        "e.meta_json, e.status, e.favorite FROM entries e WHERE 1=1"
+    )
     args: list = []
     if from_:
-        sql += " AND occurred_at >= ?"
+        sql += " AND e.occurred_at >= ?"
         args.append(from_)
     if to:
-        sql += " AND occurred_at <= ?"
+        sql += " AND e.occurred_at <= ?"
         args.append(to)
     if kind:
-        sql += " AND kind = ?"
+        sql += " AND e.kind = ?"
         args.append(kind)
-    sql += f" ORDER BY occurred_at {order.upper()} LIMIT ?"
+    if favorite:
+        sql += " AND e.favorite = 1"
+    if tag:
+        sql += (
+            " AND e.id IN (SELECT et.entry_id FROM entry_tags et "
+            "JOIN tags t ON t.id = et.tag_id WHERE t.name = ? COLLATE NOCASE)"
+        )
+        args.append(tag)
+    sql += f" ORDER BY e.occurred_at {order.upper()} LIMIT ?"
     args.append(limit)
 
     rows = get_conn().execute(sql, args).fetchall()
+    tags_by_entry = get_tags_for_entries([r["id"] for r in rows])
     out: list[TimelineItem] = []
     for r in rows:
         meta = json.loads(r["meta_json"]) if r["meta_json"] else {}
@@ -55,6 +69,8 @@ async def list_timeline(
                 snippet=_snippet(r["body"]),
                 source_url=source_url,
                 status=r["status"] if "status" in r.keys() else "done",
+                tags=tags_by_entry.get(r["id"], []),
+                favorite=bool(r["favorite"]),
             )
         )
     return out

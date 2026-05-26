@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { listTimeline, type TimelineItem } from "../api";
+import { listTags, listTimeline, type TagInfo, type TimelineItem } from "../api";
 import CalendarHeatmap from "../components/CalendarHeatmap";
 import EntryDrawer from "../components/EntryDrawer";
 import { dayKey, hhmm, localIso, longDate } from "../lib/date";
@@ -43,6 +43,10 @@ export default function TimelinePage() {
   const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
   const [heatmapKey, setHeatmapKey] = useState(0);
+  // Filters: favorites-only and a single active tag.
+  const [favOnly, setFavOnly] = useState(false);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<TagInfo[]>([]);
   const pendingScrollDay = useRef<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -64,6 +68,8 @@ export default function TimelinePage() {
         ...rangeBounds(range),
         order: "desc",
         limit: 2000,
+        favorite: favOnly,
+        ...(tagFilter ? { tag: tagFilter } : {}),
       });
       setItems(data);
       setHeatmapKey((k) => k + 1);
@@ -75,7 +81,14 @@ export default function TimelinePage() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range]);
+  }, [range, favOnly, tagFilter]);
+
+  // Tag list for the filter dropdown; refreshed alongside the timeline data.
+  useEffect(() => {
+    listTags()
+      .then(setAllTags)
+      .catch(() => {});
+  }, [heatmapKey]);
 
   // While anything is still processing, poll so the timeline updates in place.
   useEffect(() => {
@@ -148,6 +161,54 @@ export default function TimelinePage() {
         refreshKey={heatmapKey}
         onDayClick={handleHeatmapDayClick}
       />
+
+      {/* Filter bar: favorites toggle + tag picker */}
+      {(allTags.length > 0 || favOnly || tagFilter) && (
+        <div className="mb-3 flex items-center gap-2 flex-wrap text-xs">
+          <button
+            onClick={() => setFavOnly((v) => !v)}
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full transition-all duration-200 ${
+              favOnly
+                ? "bg-amber/15 text-amber"
+                : "text-ink-muted hover:text-ink hover:bg-surface2"
+            }`}
+            aria-pressed={favOnly}
+          >
+            <span>{favOnly ? "♥" : "♡"}</span>
+            {t("timeline.filter.favorites")}
+          </button>
+
+          {allTags.length > 0 && (
+            <select
+              value={tagFilter ?? ""}
+              onChange={(e) => setTagFilter(e.target.value || null)}
+              className={`px-3 py-1 rounded-full bg-transparent border hairline mono-time
+                          focus:outline-none focus:border-amber cursor-pointer ${
+                            tagFilter ? "text-amber border-amber" : "text-ink-muted"
+                          }`}
+            >
+              <option value="">{t("timeline.filter.allTags")}</option>
+              {allTags.map((tg) => (
+                <option key={tg.name} value={tg.name}>
+                  {tg.name} ({tg.count})
+                </option>
+              ))}
+            </select>
+          )}
+
+          {(favOnly || tagFilter) && (
+            <button
+              onClick={() => {
+                setFavOnly(false);
+                setTagFilter(null);
+              }}
+              className="text-ink-faint hover:text-amber transition-colors"
+            >
+              {t("timeline.filter.clear")}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Status line */}
       <div className="mb-2 text-xs text-ink-faint mono-time">
@@ -233,17 +294,36 @@ export default function TimelinePage() {
                       <span className="mono-time text-xs text-ink-faint w-12 flex-shrink-0 pt-0.5">
                         {hhmm(it.occurred_at)}
                       </span>
-                      <span
-                        className={`serif-title text-[15px] leading-snug flex-1 min-w-0 truncate ${
-                          processing ? "text-ink-faint italic" : failed ? "text-amber" : "text-ink"
-                        }`}
-                      >
-                        {processing
-                          ? t("timeline.processing")
-                          : failed
-                            ? t("timeline.failed")
-                            : it.title || it.snippet || "—"}
+                      <span className="flex-1 min-w-0">
+                        <span
+                          className={`block serif-title text-[15px] leading-snug truncate ${
+                            processing ? "text-ink-faint italic" : failed ? "text-amber" : "text-ink"
+                          }`}
+                        >
+                          {processing
+                            ? t("timeline.processing")
+                            : failed
+                              ? t("timeline.failed")
+                              : it.title || it.snippet || "—"}
+                        </span>
+                        {it.tags.length > 0 && !processing && !failed && (
+                          <span className="mt-1 flex flex-wrap gap-1">
+                            {it.tags.slice(0, 4).map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-full bg-surface2 text-ink-faint px-2 py-px text-[10px] mono-time"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </span>
+                        )}
                       </span>
+                      {it.favorite && (
+                        <span className="text-amber text-xs pt-0.5" aria-hidden>
+                          ♥
+                        </span>
+                      )}
                       <span className="serif-title text-xs text-ink-faint pt-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                         {t(`kind.glyph.${it.kind}`)}
                       </span>
