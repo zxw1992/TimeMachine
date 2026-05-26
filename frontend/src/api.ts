@@ -223,6 +223,7 @@ export interface SettingsState {
   ai_provider: string;
   embedding_provider: string;
   transcribe_provider: string;
+  suggest_tags: boolean;
   providers: Record<string, ProviderInfo>;
   custom_providers: CustomProvider[];
   catalog: CatalogItem[];

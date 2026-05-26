@@ -47,6 +47,7 @@ export default function SettingsPage() {
   const [models, setModels] = useState<Record<string, string>>({});
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [customs, setCustoms] = useState<CustomProvider[]>([]);
+  const [suggestTags, setSuggestTags] = useState(true);
 
   const [saving, setSaving] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
@@ -69,6 +70,7 @@ export default function SettingsPage() {
     setModels(m);
     setKeys({});
     setCustoms(s.custom_providers.map((c) => ({ ...c, api_key: "" })));
+    setSuggestTags(s.suggest_tags);
   }
 
   useEffect(() => {
@@ -95,6 +97,7 @@ export default function SettingsPage() {
       const updates: Record<string, unknown> = {
         ai_provider: aiProvider,
         transcribe_provider: transProvider,
+        suggest_tags: suggestTags,
         ...models,
         custom_providers: customs,
       };
@@ -266,6 +269,21 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+
+          <label className="flex items-start gap-3 cursor-pointer pt-1">
+            <input
+              type="checkbox"
+              checked={suggestTags}
+              onChange={(e) => setSuggestTags(e.target.checked)}
+              className="mt-1 accent-amber"
+            />
+            <span className="text-sm text-ink">
+              {t("settings.suggestTags.label")}
+              <span className="block text-xs text-ink-faint mt-0.5">
+                {t("settings.suggestTags.hint")}
+              </span>
+            </span>
+          </label>
         </div>
       </section>
 

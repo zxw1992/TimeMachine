@@ -159,12 +159,14 @@ async def process_entry(entry_id: int) -> None:
 
         # Suggest tags for the user to accept later (best-effort — never block
         # ingestion on it). Stored under meta['suggested_tags'], not applied.
-        try:
-            suggested = await provider.suggest_tags(body)
-            if suggested:
-                meta["suggested_tags"] = suggested
-        except Exception:  # noqa: BLE001
-            log.warning("tag suggestion failed for entry %s", entry_id, exc_info=True)
+        # Skipped when the user turns it off in Settings (saves an AI call).
+        if settings.suggest_tags:
+            try:
+                suggested = await provider.suggest_tags(body)
+                if suggested:
+                    meta["suggested_tags"] = suggested
+            except Exception:  # noqa: BLE001
+                log.warning("tag suggestion failed for entry %s", entry_id, exc_info=True)
 
         update_entry_status(entry_id, "embedding")
         embedding = await provider.embed(f"{title}\n{body}")

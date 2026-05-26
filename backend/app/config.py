@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     embedding_provider: str = "openai"
     transcribe_provider: str = "openai"
 
+    # Whether the primary model suggests tags during ingestion (one extra, cheap
+    # AI call per capture). Suggestions are proposed, never auto-applied.
+    suggest_tags: bool = True
+
     # User-defined OpenAI-compatible providers, each:
     #   {id, label, base_url, api_key, text_model, vision_model,
     #    embedding_model, embedding_dim, transcribe_model, caps: [..]}
