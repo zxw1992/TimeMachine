@@ -6,11 +6,13 @@ import CapturePage from "./pages/CapturePage";
 import TimelinePage from "./pages/TimelinePage";
 import SearchPage from "./pages/SearchPage";
 import SettingsPage from "./pages/SettingsPage";
+import ReviewPage from "./pages/ReviewPage";
 
 const NAV = [
   { to: "/capture", key: "nav.capture" },
   { to: "/timeline", key: "nav.timeline" },
   { to: "/search", key: "nav.search" },
+  { to: "/review", key: "nav.review" },
 ];
 
 function navCls({ isActive }: { isActive: boolean }) {
@@ -73,6 +75,7 @@ export default function App() {
           <Route path="/capture" element={<CapturePage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/review" element={<ReviewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>

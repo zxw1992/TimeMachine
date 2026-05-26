@@ -22,7 +22,13 @@ from pathlib import Path
 from openai import AsyncOpenAI
 
 from ..config import get_settings
-from .base import IMAGE_PROMPT, SUMMARY_PROMPT, TAGS_PROMPT, parse_suggested_tags
+from .base import (
+    IMAGE_PROMPT,
+    REPORT_PROMPT,
+    SUMMARY_PROMPT,
+    TAGS_PROMPT,
+    parse_suggested_tags,
+)
 
 
 class BailianProvider:
@@ -81,6 +87,15 @@ class BailianProvider:
             max_tokens=60,
         )
         return parse_suggested_tags(resp.choices[0].message.content or "")
+
+    async def summarize_period(self, body: str) -> str:
+        prompt = REPORT_PROMPT.format(body=body[:8000])
+        resp = await self.client.chat.completions.create(
+            model=self.text_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2500,
+        )
+        return resp.choices[0].message.content or ""
 
     async def transcribe_audio(self, audio_path: Path) -> str:  # noqa: ARG002
         raise NotImplementedError(

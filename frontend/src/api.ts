@@ -150,6 +150,56 @@ export async function listTags(): Promise<TagInfo[]> {
   return request<TagInfo[]>("/api/tags");
 }
 
+// ───────────────────────── Reports / review ─────────────────────────
+
+export type ReportKind = "week" | "month";
+
+export interface ReportStats {
+  count: number;
+  by_kind: { text: number; image: number; audio: number };
+  favorites: number;
+  daily: { date: string; count: number }[];
+  top_tags: { name: string; count: number }[];
+}
+
+export interface ReportPayload {
+  headline: string;
+  narrative: string;
+  themes: string[];
+  highlight: string;
+  poster_svg: string;
+}
+
+export interface ReportOverview {
+  kind: ReportKind;
+  offset: number;
+  period_key: string;
+  period_start: string;
+  period_end: string;
+  stats: ReportStats;
+  report: {
+    payload: ReportPayload;
+    generated_at: string;
+    entry_count: number;
+  } | null;
+}
+
+export async function getReport(
+  kind: ReportKind,
+  offset: number,
+): Promise<ReportOverview> {
+  return request<ReportOverview>(`/api/reports/${kind}?offset=${offset}`);
+}
+
+export async function generateReport(
+  kind: ReportKind,
+  offset: number,
+): Promise<ReportOverview> {
+  return request<ReportOverview>(`/api/reports/${kind}?offset=${offset}`, {
+    method: "POST",
+  });
+}
+
 // ───────────────────────── Export / import ─────────────────────────
 
 /** Relative URLs for the streamed zip downloads (used as anchor hrefs). */
