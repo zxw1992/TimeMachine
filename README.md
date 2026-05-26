@@ -87,10 +87,10 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1
 
 Open http://localhost:5173 in your browser:
 
-- **Capture** — choose text / image / audio, then type or upload. `⌘V` pastes a screenshot directly, and you can drop in **several images at once** (each becomes its own entry). Audio records via the browser microphone. Entries are saved immediately and organized by AI in the background, with staged progress; you can optionally set a custom timestamp to backdate a memory. First-time users get a short setup guide, and past memories resurface under **"On this day."**
-- **Timeline** — a vertical "river of time" grouped by day, with a monthly **calendar heatmap** for a bird's-eye view. Click any title to open the detail drawer on the right.
-- **Search** — describe what you're looking for in natural language (e.g. *"the menu I saw last week"*); results are ranked by semantic similarity.
-- **Settings** — configure AI providers, API keys, and models live; add custom OpenAI-compatible providers; switch language and theme. No file editing or restart.
+- **Capture** — choose text / image / audio, then type or upload. `⌘V` pastes a screenshot directly, and you can drop in **several images at once** (each becomes its own entry). Audio records via the browser microphone. **Add tags inline** as you capture, with autocomplete from your existing tags. Entries are saved immediately and organized by AI in the background, with staged progress; you can optionally set a custom timestamp to backdate a memory. First-time users get a short setup guide, and past memories resurface under **"On this day."**
+- **Timeline** — a vertical "river of time" grouped by day, with a monthly **calendar heatmap** for a bird's-eye view, and you can **filter by tag or favorites**. Click any title to open the detail drawer on the right, where you can **edit** the title / body / time, **favorite** it (♥), and **manage tags** — including **one-click AI tag suggestions** generated from the entry's content. Editing the title or body automatically re-embeds the entry so search stays in sync.
+- **Search** — describe what you're looking for in natural language (e.g. *"the menu I saw last week"*); results are ranked by semantic similarity, and show each entry's tags and favorite state.
+- **Settings** — configure AI providers, API keys, and models live; add custom OpenAI-compatible providers; switch language and theme. No file editing or restart. **Export & import** lives here too: download a full backup (data + media) as a zip or a readable Markdown archive, and restore a backup with an additive, de-duplicated import.
 
 ---
 
@@ -104,7 +104,7 @@ data/
 └── uploads/YYYY/MM/    # original images and audio; thumbs/ for thumbnails
 ```
 
-To back up, copy the entire `data/` directory.
+To back up, copy the entire `data/` directory — or use **Settings → Data** to export a backup (a zip with your data and media) that you can re-import later.
 
 ---
 
@@ -143,9 +143,9 @@ rm backend/data/timemachine.db
 
 - Automatic screenshot / always-on microphone (privacy-sensitive)
 - Global hotkey / menu-bar app
-- Tags, favorites, edit
 - Multi-user, cloud sync, encryption
 - AI-generated monthly / yearly recap reports
+- Importing from other apps (Day One / Bear / Notion); PDF export
 
 ---
 
