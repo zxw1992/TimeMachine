@@ -7,8 +7,14 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 
 from ..db import get_conn
-from ..ingestion.pipeline import create_pending, delete_entry, fetch_entry, process_entry
-from ..schemas import EntryOut
+from ..ingestion.pipeline import (
+    create_pending,
+    delete_entry,
+    fetch_entry,
+    process_entry,
+    update_entry,
+)
+from ..schemas import EntryOut, EntryUpdate
 
 router = APIRouter(prefix="/api/entries", tags=["entries"])
 
@@ -96,6 +102,22 @@ async def list_entries(
 @router.get("/{entry_id}", response_model=EntryOut)
 async def get_entry(entry_id: int) -> EntryOut:
     row = fetch_entry(entry_id)
+    if row is None:
+        raise HTTPException(404, "not found")
+    return _row_to_out(row)
+
+
+@router.patch("/{entry_id}", response_model=EntryOut)
+async def update(entry_id: int, payload: EntryUpdate) -> EntryOut:
+    try:
+        row = await update_entry(
+            entry_id,
+            title=payload.title,
+            body=payload.body,
+            occurred_at=payload.occurred_at,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
     if row is None:
         raise HTTPException(404, "not found")
     return _row_to_out(row)

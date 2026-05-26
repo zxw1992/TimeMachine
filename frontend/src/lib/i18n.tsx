@@ -171,6 +171,15 @@ const zh: Dict = {
   "drawer.loading": "汲取中…",
   "drawer.savedAt": "写入于 {time}",
   "drawer.delete": "删除这条记忆",
+  "drawer.edit": "编辑",
+  "drawer.save": "保存",
+  "drawer.cancel": "取消",
+  "drawer.saving": "保存中…",
+  "drawer.titleLabel": "标题",
+  "drawer.titlePlaceholder": "（留空则无标题）",
+  "drawer.bodyLabel": "正文",
+  "drawer.timeLabel": "发生时间",
+  "drawer.editError": "保存失败，请重试",
 
   // River entry (shared list item)
   "entry.match": "· 相似 {pct}%",
@@ -375,6 +384,15 @@ const en: Dict = {
   "drawer.loading": "Loading…",
   "drawer.savedAt": "Saved {time}",
   "drawer.delete": "Delete this memory",
+  "drawer.edit": "Edit",
+  "drawer.save": "Save",
+  "drawer.cancel": "Cancel",
+  "drawer.saving": "Saving…",
+  "drawer.titleLabel": "Title",
+  "drawer.titlePlaceholder": "(leave empty for no title)",
+  "drawer.bodyLabel": "Body",
+  "drawer.timeLabel": "When it happened",
+  "drawer.editError": "Save failed, please retry",
 
   // River entry (shared list item)
   "entry.match": "· {pct}% match",

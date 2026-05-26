@@ -184,6 +184,61 @@ async def process_entry(entry_id: int) -> None:
             update_entry_status(entry_id, "error")
 
 
+async def update_entry(
+    entry_id: int,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    occurred_at: str | None = None,
+) -> dict | None:
+    """Edit a finished entry's text fields, returning the updated row.
+
+    Only title / body / occurred_at are editable. A field left as None is kept
+    as-is; an empty (whitespace) title clears it. FTS stays in sync via the
+    `entries_au` trigger. When the body changes we re-embed so semantic search
+    doesn't drift; a title-only edit skips the AI call (title is a minor signal).
+
+    Returns None if the entry doesn't exist. Raises ValueError if it isn't
+    'done' (can't edit one still processing) or if the body would become empty.
+    """
+    row = fetch_entry(entry_id)
+    if row is None:
+        return None
+    if (row.get("status") or "done") != "done":
+        raise ValueError("条目尚在处理中，暂不可编辑")
+
+    new_title = row["title"] if title is None else (title.strip() or None)
+    new_body = row["body"] if body is None else body.strip()
+    new_occurred = occurred_at or row["occurred_at"]
+    if not new_body:
+        raise ValueError("正文不能为空")
+
+    body_changed = new_body != row["body"]
+
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE entries SET title = ?, body = ?, occurred_at = ? WHERE id = ?",
+            (new_title, new_body, new_occurred, entry_id),
+        )
+
+    # The text edit above is committed. Re-embed on body change; an embedding
+    # failure leaves a stale vector but never loses the saved edit.
+    if body_changed:
+        try:
+            embedding = await get_provider().embed(f"{new_title or ''}\n{new_body}")
+            ensure_vec_table(len(embedding))
+            with transaction() as conn:
+                conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
+                conn.execute(
+                    "INSERT INTO entries_vec(entry_id, embedding) VALUES (?, ?)",
+                    (entry_id, serialize_vector(embedding)),
+                )
+        except Exception:  # noqa: BLE001
+            log.exception("re-embed failed for edited entry %s", entry_id)
+
+    return fetch_entry(entry_id)
+
+
 def fetch_entry(entry_id: int) -> dict | None:
     row = get_conn().execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
     return dict(row) if row else None

@@ -116,3 +116,59 @@ def test_create_pending_rejects_blank_text(fake_provider):
         pipeline.create_pending(
             kind="text", text="   ", uploads=None, hint=None, occurred_at=None
         )
+
+
+def test_update_entry_edits_text_and_reembeds(fake_provider):
+    """Editing the body updates the row and refreshes its single vector."""
+    from app import db
+    from app.ingestion import pipeline
+
+    entry_id = pipeline.create_pending(
+        kind="text", text="original", uploads=None, hint=None, occurred_at=None
+    )
+    asyncio.run(pipeline.process_entry(entry_id))
+
+    updated = asyncio.run(
+        pipeline.update_entry(
+            entry_id, title="New Title", body="rewritten", occurred_at="2020-01-02T03:04:05"
+        )
+    )
+    assert updated["title"] == "New Title"
+    assert updated["body"] == "rewritten"
+    assert updated["occurred_at"] == "2020-01-02T03:04:05"
+
+    # Still exactly one vector row (re-embed deletes then re-inserts, not duplicates).
+    n = db.get_conn().execute(
+        "SELECT COUNT(*) AS n FROM entries_vec WHERE entry_id = ?", (entry_id,)
+    ).fetchone()["n"]
+    assert n == 1
+
+    # FTS reflects the new body (trigger-driven), so search can find it.
+    hit = db.get_conn().execute(
+        "SELECT rowid FROM entries_fts WHERE entries_fts MATCH 'rewritten'"
+    ).fetchone()
+    assert hit["rowid"] == entry_id
+
+
+def test_update_entry_rejects_blank_body(fake_provider):
+    from app.ingestion import pipeline
+
+    entry_id = pipeline.create_pending(
+        kind="text", text="keep me", uploads=None, hint=None, occurred_at=None
+    )
+    asyncio.run(pipeline.process_entry(entry_id))
+
+    with pytest.raises(ValueError):
+        asyncio.run(pipeline.update_entry(entry_id, body="   "))
+
+
+def test_update_entry_blocked_while_processing(fake_provider):
+    """A queued (not-yet-done) entry can't be edited."""
+    from app.ingestion import pipeline
+
+    entry_id = pipeline.create_pending(
+        kind="text", text="pending", uploads=None, hint=None, occurred_at=None
+    )  # left in 'queued' — process_entry not run
+
+    with pytest.raises(ValueError):
+        asyncio.run(pipeline.update_entry(entry_id, body="nope"))

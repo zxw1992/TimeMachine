@@ -490,6 +490,7 @@ export default function CapturePage() {
         entryId={openId}
         onClose={() => setOpenId(null)}
         onDeleted={() => setMemoriesKey((k) => k + 1)}
+        onUpdated={() => setMemoriesKey((k) => k + 1)}
       />
     </div>
   );

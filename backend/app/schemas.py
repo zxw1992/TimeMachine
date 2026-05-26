@@ -19,6 +19,15 @@ class EntryOut(BaseModel):
     status: str = "done"
 
 
+class EntryUpdate(BaseModel):
+    """Editable fields of an existing entry. Any field left None is untouched;
+    an empty `title` clears it. Body re-embeds; FTS syncs via DB trigger."""
+
+    title: str | None = None
+    body: str | None = None
+    occurred_at: str | None = None
+
+
 class TimelineItem(BaseModel):
     id: int
     occurred_at: str

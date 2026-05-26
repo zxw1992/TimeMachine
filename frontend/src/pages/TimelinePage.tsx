@@ -263,6 +263,7 @@ export default function TimelinePage() {
         onSelect={setOpenId}
         onClose={() => setOpenId(null)}
         onDeleted={refresh}
+        onUpdated={refresh}
       />
     </div>
   );

@@ -95,6 +95,17 @@ export async function listEntries(
   return request<EntryOut[]>(`/api/entries?limit=${limit}&order=${order}`);
 }
 
+export async function updateEntry(
+  id: number,
+  updates: { title?: string | null; body?: string; occurred_at?: string },
+): Promise<EntryOut> {
+  return request<EntryOut>(`/api/entries/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+}
+
 export async function deleteEntry(id: number): Promise<void> {
   const r = await fetch(`/api/entries/${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error("delete failed");
