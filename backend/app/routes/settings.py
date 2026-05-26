@@ -96,6 +96,7 @@ def _public_state() -> dict:
         "ai_provider": s.ai_provider,
         "embedding_provider": s.embedding_provider,
         "transcribe_provider": s.transcribe_provider,
+        "suggest_tags": s.suggest_tags,
         "providers": providers,
         "custom_providers": customs,
         "catalog": catalog,

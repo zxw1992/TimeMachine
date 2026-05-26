@@ -68,6 +68,24 @@ def test_suggested_tags_land_in_meta(monkeypatch):
     assert db.get_entry_tags(eid) == []
 
 
+def test_toggle_off_skips_suggestion(monkeypatch):
+    from app import config
+    from app.ingestion import pipeline
+
+    monkeypatch.setattr(pipeline, "get_provider", lambda: TaggingProvider())
+    config.save_settings({"suggest_tags": False})
+
+    eid = pipeline.create_pending(
+        kind="text", text="hello", uploads=None, hint=None, occurred_at=None
+    )
+    asyncio.run(pipeline.process_entry(eid))
+
+    row = pipeline.fetch_entry(eid)
+    assert row["status"] == "done"
+    meta = json.loads(row["meta_json"]) if row["meta_json"] else {}
+    assert "suggested_tags" not in meta
+
+
 def test_suggestion_failure_does_not_block_ingestion(monkeypatch):
     from app.ingestion import pipeline
 
