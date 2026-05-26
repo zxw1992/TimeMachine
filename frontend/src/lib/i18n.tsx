@@ -195,6 +195,7 @@ const zh: Dict = {
   "drawer.favorite": "收藏",
   "drawer.unfavorite": "取消收藏",
   "drawer.tagsLabel": "标签",
+  "drawer.suggestedLabel": "建议",
 
   // Tags
   "tags.label": "标签",
@@ -428,6 +429,7 @@ const en: Dict = {
   "drawer.favorite": "Favorite",
   "drawer.unfavorite": "Unfavorite",
   "drawer.tagsLabel": "Tags",
+  "drawer.suggestedLabel": "Suggested",
 
   // Tags
   "tags.label": "Tags",

@@ -7,7 +7,7 @@ from pathlib import Path
 from anthropic import AsyncAnthropic
 
 from ..config import get_settings
-from .base import IMAGE_PROMPT, SUMMARY_PROMPT
+from .base import IMAGE_PROMPT, SUMMARY_PROMPT, TAGS_PROMPT, parse_suggested_tags
 
 
 class ClaudeProvider:
@@ -66,6 +66,16 @@ class ClaudeProvider:
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         title = "".join(parts).strip().strip("「」\"'。.")
         return title[:30]
+
+    async def suggest_tags(self, body: str) -> list[str]:
+        prompt = TAGS_PROMPT.format(body=body[:2000])
+        msg = await self.client.messages.create(
+            model=self.text_model,
+            max_tokens=80,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
+        return parse_suggested_tags("".join(parts))
 
     async def transcribe_audio(self, audio_path: Path) -> str:  # noqa: ARG002
         raise NotImplementedError("Claude has no native audio transcription; use OpenAI fallback")

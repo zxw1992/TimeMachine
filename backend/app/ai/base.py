@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Protocol
 
@@ -12,6 +13,8 @@ class AIProvider(Protocol):
     async def transcribe_audio(self, audio_path: Path) -> str: ...
 
     async def summarize_title(self, body: str) -> str: ...
+
+    async def suggest_tags(self, body: str) -> list[str]: ...
 
     async def embed(self, text: str) -> list[float]: ...
 
@@ -26,6 +29,44 @@ SUMMARY_PROMPT = (
     "quotes and no trailing punctuation (about 12 words, or 20 characters for CJK). "
     "Write the title in the same language as the content.\n\nContent:\n{body}"
 )
+
+TAGS_PROMPT = (
+    "Suggest 3-5 short topical tags for the memory entry below, to help organize "
+    "and find it later. Output ONLY the tags separated by commas — no numbering, "
+    "no '#', no quotes, no extra text. Each tag is 1-3 words (2-6 characters for "
+    "CJK). Write the tags in the same language as the content.\n\nContent:\n{body}"
+)
+
+# How many suggested tags we keep, and the max length of each.
+MAX_SUGGESTED_TAGS = 5
+_MAX_SUGGESTED_TAG_LEN = 24
+
+
+def parse_suggested_tags(raw: str) -> list[str]:
+    """Turn a model's free-form tag reply into a clean, capped, deduped list.
+
+    Tolerant of commas (ASCII / fullwidth), the Chinese enumeration comma, and
+    newlines as separators; strips leading '#', numbering, and surrounding
+    quotes/brackets."""
+    if not raw:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for piece in re.split(r"[,，、\n;；]+", raw):
+        tag = re.sub(r"^\s*\d+[.)]\s*", "", piece)  # drop "1." / "2)" numbering
+        tag = tag.strip(" \t'\"「」《》[]()-•*#").strip()
+        tag = " ".join(tag.split())[:_MAX_SUGGESTED_TAG_LEN].strip()
+        if not tag:
+            continue
+        key = tag.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(tag)
+        if len(out) >= MAX_SUGGESTED_TAGS:
+            break
+    return out
+
 
 IMAGE_PROMPT = (
     "Look carefully at this image and write a concise but information-dense "

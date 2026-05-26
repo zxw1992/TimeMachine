@@ -7,7 +7,7 @@ from pathlib import Path
 from openai import AsyncOpenAI
 
 from ..config import get_settings
-from .base import IMAGE_PROMPT, SUMMARY_PROMPT
+from .base import IMAGE_PROMPT, SUMMARY_PROMPT, TAGS_PROMPT, parse_suggested_tags
 
 
 class OpenAIProvider:
@@ -63,6 +63,15 @@ class OpenAIProvider:
         )
         title = (resp.choices[0].message.content or "").strip().strip("「」\"'。.")
         return title[:30]
+
+    async def suggest_tags(self, body: str) -> list[str]:
+        prompt = TAGS_PROMPT.format(body=body[:2000])
+        resp = await self.client.chat.completions.create(
+            model=self.text_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=60,
+        )
+        return parse_suggested_tags(resp.choices[0].message.content or "")
 
     async def embed(self, text: str) -> list[float]:
         resp = await self.client.embeddings.create(

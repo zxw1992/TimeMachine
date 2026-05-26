@@ -99,6 +99,29 @@ export default function EntryDrawer({
     }
   }
 
+  // AI-suggested tags live in meta; accepting one turns it into a real tag.
+  const suggestedTags = Array.isArray(entry?.meta?.["suggested_tags"])
+    ? (entry!.meta!["suggested_tags"] as string[])
+    : [];
+  const notYetTaggedView = (have: string[]) =>
+    suggestedTags.filter(
+      (s) => !have.some((t) => t.toLowerCase() === s.toLowerCase()),
+    );
+
+  async function acceptTag(tag: string) {
+    if (!entry) return;
+    const next = [...entry.tags, tag];
+    const prev = entry;
+    setEntry({ ...entry, tags: next }); // optimistic
+    try {
+      const updated = await updateEntry(entry.id, { tags: next });
+      setEntry(updated);
+      onUpdated?.(updated);
+    } catch {
+      setEntry(prev); // revert on failure
+    }
+  }
+
   // Favorite is a one-click toggle, available in both view and edit modes.
   async function toggleFavorite() {
     if (!entry) return;
@@ -302,18 +325,38 @@ export default function EntryDrawer({
                       suggestions={tagSuggestions}
                     />
                   </div>
+                  <SuggestedTags
+                    tags={notYetTaggedView(draftTags)}
+                    onAccept={(tag) =>
+                      setDraftTags((prev) =>
+                        prev.some((x) => x.toLowerCase() === tag.toLowerCase())
+                          ? prev
+                          : [...prev, tag],
+                      )
+                    }
+                    label={t("drawer.suggestedLabel")}
+                  />
                 </div>
               ) : (
-                entry.tags.length > 0 && (
-                  <div className="mb-6 flex flex-wrap gap-1.5">
-                    {entry.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-surface2 text-ink-muted px-2.5 py-0.5 text-xs"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                (entry.tags.length > 0 || notYetTaggedView(entry.tags).length > 0) && (
+                  <div className="mb-6 space-y-2">
+                    {entry.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {entry.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-surface2 text-ink-muted px-2.5 py-0.5 text-xs"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <SuggestedTags
+                      tags={notYetTaggedView(entry.tags)}
+                      onAccept={acceptTag}
+                      label={t("drawer.suggestedLabel")}
+                    />
                   </div>
                 )
               )}
@@ -423,5 +466,35 @@ export default function EntryDrawer({
         ) : null}
       </aside>
     </>
+  );
+}
+
+/** AI-suggested tags shown as dashed "+ tag" chips; click to accept one. */
+function SuggestedTags({
+  tags,
+  onAccept,
+  label,
+}: {
+  tags: string[];
+  onAccept: (tag: string) => void;
+  label: string;
+}) {
+  if (tags.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="mono-time text-[10px] text-ink-faint mr-1">{label}</span>
+      {tags.map((tag) => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => onAccept(tag)}
+          className="rounded-full border border-dashed border-divider text-ink-faint
+                     hover:text-amber hover:border-amber px-2.5 py-0.5 text-xs
+                     transition-colors duration-200"
+        >
+          + {tag}
+        </button>
+      ))}
+    </div>
   );
 }
