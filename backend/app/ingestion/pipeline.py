@@ -13,6 +13,8 @@ from ..db import (
     ensure_vec_table,
     get_conn,
     serialize_vector,
+    set_entry_tags,
+    set_favorite,
     transaction,
     update_entry_status,
 )
@@ -155,6 +157,15 @@ async def process_entry(entry_id: int) -> None:
         update_entry_status(entry_id, "titling")
         title = await provider.summarize_title(body)
 
+        # Suggest tags for the user to accept later (best-effort — never block
+        # ingestion on it). Stored under meta['suggested_tags'], not applied.
+        try:
+            suggested = await provider.suggest_tags(body)
+            if suggested:
+                meta["suggested_tags"] = suggested
+        except Exception:  # noqa: BLE001
+            log.warning("tag suggestion failed for entry %s", entry_id, exc_info=True)
+
         update_entry_status(entry_id, "embedding")
         embedding = await provider.embed(f"{title}\n{body}")
         ensure_vec_table(len(embedding))
@@ -184,6 +195,91 @@ async def process_entry(entry_id: int) -> None:
             update_entry_status(entry_id, "error")
 
 
+async def update_entry(
+    entry_id: int,
+    *,
+    title: str | None = None,
+    body: str | None = None,
+    occurred_at: str | None = None,
+    tags: list[str] | None = None,
+    favorite: bool | None = None,
+) -> dict | None:
+    """Edit an entry's fields, returning the updated row.
+
+    A field left as None is kept as-is; an empty (whitespace) title clears it.
+    FTS stays in sync via the `entries_au` trigger. When the body changes we
+    re-embed so semantic search doesn't drift; a title-only edit skips the AI
+    call (title is a minor signal). `tags` / `favorite` are lightweight and may
+    be set even while the entry is still processing; editing the text fields
+    requires a finished entry.
+
+    Returns None if the entry doesn't exist. Raises ValueError if a text edit is
+    attempted on an unfinished entry, or if the body would become empty.
+    """
+    row = fetch_entry(entry_id)
+    if row is None:
+        return None
+
+    text_edit = title is not None or body is not None or occurred_at is not None
+    if text_edit and (row.get("status") or "done") != "done":
+        raise ValueError("条目尚在处理中，暂不可编辑")
+
+    new_title = row["title"] if title is None else (title.strip() or None)
+    new_body = row["body"] if body is None else body.strip()
+    new_occurred = occurred_at or row["occurred_at"]
+    if not new_body:
+        raise ValueError("正文不能为空")
+
+    # The embedding text is f"{title}\n{body}", so a title-only edit also makes
+    # the vector stale — re-embed whenever either changed (time / favorite / tags
+    # don't affect the embedding, so they don't trigger it).
+    embed_dirty = new_title != row["title"] or new_body != row["body"]
+
+    if text_edit:
+        with transaction() as conn:
+            conn.execute(
+                "UPDATE entries SET title = ?, body = ?, occurred_at = ? WHERE id = ?",
+                (new_title, new_body, new_occurred, entry_id),
+            )
+
+    if favorite is not None:
+        set_favorite(entry_id, favorite)
+    if tags is not None:
+        set_entry_tags(entry_id, tags)
+
+    # The text edit above is committed. An embedding failure leaves a stale
+    # vector but never loses the saved edit.
+    if embed_dirty:
+        await reembed_entry(entry_id)
+
+    return fetch_entry(entry_id)
+
+
+async def reembed_entry(entry_id: int) -> bool:
+    """(Re)compute an entry's embedding and replace its vector row.
+
+    Used by edits and by import (where entries arrive with final text but no
+    vector). Best-effort: returns False and logs on failure (e.g. no API key),
+    leaving full-text search — which is trigger-driven — still working.
+    """
+    row = fetch_entry(entry_id)
+    if row is None:
+        return False
+    try:
+        embedding = await get_provider().embed(f"{row['title'] or ''}\n{row['body']}")
+        ensure_vec_table(len(embedding))
+        with transaction() as conn:
+            conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
+            conn.execute(
+                "INSERT INTO entries_vec(entry_id, embedding) VALUES (?, ?)",
+                (entry_id, serialize_vector(embedding)),
+            )
+        return True
+    except Exception:  # noqa: BLE001
+        log.exception("embedding failed for entry %s", entry_id)
+        return False
+
+
 def fetch_entry(entry_id: int) -> dict | None:
     row = get_conn().execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
     return dict(row) if row else None
@@ -199,6 +295,8 @@ def delete_entry(entry_id: int) -> bool:
     with transaction() as conn:
         conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
         conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
+        # entry_tags rows cascade with the entry; drop any now-orphaned tags.
+        conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM entry_tags)")
 
     # Remove on-disk artifacts so they don't become orphans: every uploaded
     # image plus its thumbnail (meta['images']), the primary thumbnail, and the

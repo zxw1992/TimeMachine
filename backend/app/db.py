@@ -43,11 +43,127 @@ def _migrate(conn: sqlite3.Connection) -> None:
     if "status" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN status TEXT NOT NULL DEFAULT 'done'")
         conn.commit()
+    if "favorite" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
+
+    # An earlier experiment shipped a different `entry_tags` shape
+    # (entry_id, tag, source). If we find that legacy table, carry any rows over
+    # to the normalized join (tags + entry_tags(entry_id, tag_id)) and rebuild.
+    et_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_tags)").fetchall()}
+    if et_cols and "tag_id" not in et_cols:
+        legacy = conn.execute("SELECT entry_id, tag FROM entry_tags").fetchall()
+        conn.executescript("DROP TABLE entry_tags; DROP TABLE IF EXISTS tags;")
+        conn.commit()
+        _init_schema(conn)  # recreate `tags` + `entry_tags` with the right schema
+        for r in legacy:
+            conn.execute("INSERT OR IGNORE INTO tags(name) VALUES (?)", (r["tag"],))
+            tid = conn.execute(
+                "SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (r["tag"],)
+            ).fetchone()["id"]
+            conn.execute(
+                "INSERT OR IGNORE INTO entry_tags(entry_id, tag_id) VALUES (?, ?)",
+                (r["entry_id"], tid),
+            )
+        conn.commit()
 
 
 def update_entry_status(entry_id: int, status: str) -> None:
     with transaction() as conn:
         conn.execute("UPDATE entries SET status = ? WHERE id = ?", (status, entry_id))
+
+
+# ───────────────────────── Tags & favorites ─────────────────────────
+
+_MAX_TAGS_PER_ENTRY = 20
+_MAX_TAG_LEN = 50
+
+
+def normalize_tags(names: list[str]) -> list[str]:
+    """Trim, collapse whitespace, truncate, dedupe (case-insensitive), and cap
+    the count. Preserves the first-seen casing of each tag."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in names:
+        name = " ".join((raw or "").split())[:_MAX_TAG_LEN].strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(name)
+        if len(out) >= _MAX_TAGS_PER_ENTRY:
+            break
+    return out
+
+
+def get_entry_tags(entry_id: int) -> list[str]:
+    rows = get_conn().execute(
+        "SELECT t.name AS name FROM tags t "
+        "JOIN entry_tags et ON et.tag_id = t.id "
+        "WHERE et.entry_id = ? ORDER BY t.name COLLATE NOCASE",
+        (entry_id,),
+    ).fetchall()
+    return [r["name"] for r in rows]
+
+
+def get_tags_for_entries(entry_ids: list[int]) -> dict[int, list[str]]:
+    """Batch-fetch tags for many entries at once (avoids N+1 on the timeline)."""
+    if not entry_ids:
+        return {}
+    placeholders = ",".join("?" * len(entry_ids))
+    rows = get_conn().execute(
+        f"SELECT et.entry_id AS eid, t.name AS name "
+        f"FROM entry_tags et JOIN tags t ON t.id = et.tag_id "
+        f"WHERE et.entry_id IN ({placeholders}) "
+        f"ORDER BY t.name COLLATE NOCASE",
+        entry_ids,
+    ).fetchall()
+    result: dict[int, list[str]] = {}
+    for r in rows:
+        result.setdefault(r["eid"], []).append(r["name"])
+    return result
+
+
+def set_entry_tags(entry_id: int, names: list[str]) -> list[str]:
+    """Replace an entry's tags with the normalized `names`. Returns the tags as
+    stored. Unreferenced tag rows are purged so the dictionary stays clean."""
+    norm = normalize_tags(names)
+    with transaction() as conn:
+        conn.execute("DELETE FROM entry_tags WHERE entry_id = ?", (entry_id,))
+        for name in norm:
+            conn.execute("INSERT OR IGNORE INTO tags(name) VALUES (?)", (name,))
+            row = conn.execute(
+                "SELECT id FROM tags WHERE name = ? COLLATE NOCASE", (name,)
+            ).fetchone()
+            conn.execute(
+                "INSERT OR IGNORE INTO entry_tags(entry_id, tag_id) VALUES (?, ?)",
+                (entry_id, row["id"]),
+            )
+        _purge_orphan_tags(conn)
+    return norm
+
+
+def set_favorite(entry_id: int, fav: bool) -> None:
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE entries SET favorite = ? WHERE id = ?", (1 if fav else 0, entry_id)
+        )
+
+
+def list_all_tags() -> list[dict]:
+    """All tags in use, with their entry counts, most-used first."""
+    rows = get_conn().execute(
+        "SELECT t.name AS name, COUNT(et.entry_id) AS count "
+        "FROM tags t JOIN entry_tags et ON et.tag_id = t.id "
+        "GROUP BY t.id ORDER BY count DESC, t.name COLLATE NOCASE"
+    ).fetchall()
+    return [{"name": r["name"], "count": r["count"]} for r in rows]
+
+
+def _purge_orphan_tags(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM entry_tags)")
 
 
 def fail_stuck_entries() -> int:
@@ -86,11 +202,26 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             body         TEXT NOT NULL,
             source_path  TEXT,
             meta_json    TEXT,
-            status       TEXT NOT NULL DEFAULT 'done'
+            status       TEXT NOT NULL DEFAULT 'done',
+            favorite     INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE INDEX IF NOT EXISTS idx_entries_occurred_at ON entries(occurred_at);
         CREATE INDEX IF NOT EXISTS idx_entries_kind ON entries(kind);
+
+        -- Tags are normalized: a `tags` dictionary + an `entry_tags` join.
+        -- Names are unique case-insensitively; deleting an entry cascades to
+        -- its links (orphaned tag rows are purged separately).
+        CREATE TABLE IF NOT EXISTS tags (
+            id   INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE
+        );
+        CREATE TABLE IF NOT EXISTS entry_tags (
+            entry_id INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+            tag_id   INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+            PRIMARY KEY (entry_id, tag_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id);
 
         CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
             title, body, content='entries', content_rowid='id',

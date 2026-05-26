@@ -15,7 +15,9 @@ from .routes import (
     entries,
     on_this_day,
     search,
+    tags,
     timeline,
+    transfer,
 )
 from .routes import (
     settings as settings_routes,
@@ -59,6 +61,8 @@ app.include_router(timeline.router)
 app.include_router(search.router)
 app.include_router(settings_routes.router)
 app.include_router(on_this_day.router)
+app.include_router(tags.router)
+app.include_router(transfer.router)
 
 # Serve uploaded files (image thumbnails, original audio) to the frontend.
 app.mount("/files", StaticFiles(directory=str(settings.data_path)), name="files")

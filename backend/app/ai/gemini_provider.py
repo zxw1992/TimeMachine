@@ -6,7 +6,7 @@ from pathlib import Path
 import google.generativeai as genai
 
 from ..config import get_settings
-from .base import IMAGE_PROMPT, SUMMARY_PROMPT
+from .base import IMAGE_PROMPT, SUMMARY_PROMPT, TAGS_PROMPT, parse_suggested_tags
 
 
 class GeminiProvider:
@@ -57,6 +57,15 @@ class GeminiProvider:
 
         title = await asyncio.to_thread(_call)
         return title[:30]
+
+    async def suggest_tags(self, body: str) -> list[str]:
+        prompt = TAGS_PROMPT.format(body=body[:2000])
+
+        def _call() -> str:
+            resp = self.model.generate_content(prompt)
+            return (resp.text or "").strip()
+
+        return parse_suggested_tags(await asyncio.to_thread(_call))
 
     async def embed(self, text: str) -> list[float]:
         def _call() -> list[float]:

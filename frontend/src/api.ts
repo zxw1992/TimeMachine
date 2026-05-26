@@ -20,6 +20,8 @@ export interface EntryOut {
   source_url: string | null;
   meta: Record<string, unknown> | null;
   status: EntryStatus;
+  tags: string[];
+  favorite: boolean;
 }
 
 /** A resolved image with URLs for its full file and (optional) thumbnail. */
@@ -68,6 +70,13 @@ export interface TimelineItem {
   snippet: string;
   source_url: string | null;
   status: EntryStatus;
+  tags: string[];
+  favorite: boolean;
+}
+
+export interface TagInfo {
+  name: string;
+  count: number;
 }
 
 export interface SearchHit {
@@ -95,6 +104,23 @@ export async function listEntries(
   return request<EntryOut[]>(`/api/entries?limit=${limit}&order=${order}`);
 }
 
+export async function updateEntry(
+  id: number,
+  updates: {
+    title?: string | null;
+    body?: string;
+    occurred_at?: string;
+    tags?: string[];
+    favorite?: boolean;
+  },
+): Promise<EntryOut> {
+  return request<EntryOut>(`/api/entries/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+}
+
 export async function deleteEntry(id: number): Promise<void> {
   const r = await fetch(`/api/entries/${id}`, { method: "DELETE" });
   if (!r.ok) throw new Error("delete failed");
@@ -104,6 +130,8 @@ export async function listTimeline(params: {
   from?: string;
   to?: string;
   kind?: EntryKind;
+  tag?: string;
+  favorite?: boolean;
   limit?: number;
   order?: "asc" | "desc";
 }): Promise<TimelineItem[]> {
@@ -111,9 +139,35 @@ export async function listTimeline(params: {
   if (params.from) qs.set("from", params.from);
   if (params.to) qs.set("to", params.to);
   if (params.kind) qs.set("kind", params.kind);
+  if (params.tag) qs.set("tag", params.tag);
+  if (params.favorite) qs.set("favorite", "true");
   if (params.limit) qs.set("limit", String(params.limit));
   if (params.order) qs.set("order", params.order);
   return request<TimelineItem[]>(`/api/timeline?${qs}`);
+}
+
+export async function listTags(): Promise<TagInfo[]> {
+  return request<TagInfo[]>("/api/tags");
+}
+
+// ───────────────────────── Export / import ─────────────────────────
+
+/** Relative URLs for the streamed zip downloads (used as anchor hrefs). */
+export const EXPORT_URLS = {
+  backup: "/api/export/backup",
+  markdown: "/api/export/markdown",
+} as const;
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  total: number;
+}
+
+export async function importBackup(file: File): Promise<ImportResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return request<ImportResult>("/api/import", { method: "POST", body: fd });
 }
 
 export async function getEntry(id: number): Promise<EntryOut> {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  EXPORT_URLS,
   getSettings,
+  importBackup,
   reindexEmbeddings,
   testConnection,
   updateSettings,
@@ -52,6 +54,8 @@ export default function SettingsPage() {
   const [testResults, setTestResults] = useState<Record<string, TestResult> | null>(null);
   const [reindexing, setReindexing] = useState(false);
   const [reindexMsg, setReindexMsg] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importMsg, setImportMsg] = useState<string | null>(null);
 
   function hydrate(s: SettingsState) {
     setSt(s);
@@ -134,6 +138,25 @@ export default function SettingsPage() {
       setErr(e.message);
     } finally {
       setReindexing(false);
+    }
+  }
+
+  async function runImport(file: File) {
+    setImporting(true);
+    setImportMsg(null);
+    setErr(null);
+    try {
+      const r = await importBackup(file);
+      setImportMsg(
+        t("settings.data.importDone", {
+          imported: r.imported,
+          skipped: r.skipped,
+        }),
+      );
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -399,6 +422,54 @@ export default function SettingsPage() {
               <option value="system">{t("theme.system")}</option>
             </select>
           </label>
+        </div>
+      </section>
+
+      {/* ───── Data: export / import ───── */}
+      <section className="mb-12">
+        <h2 className={sectionTitle}>{t("settings.section.data")}</h2>
+
+        <div className="flex flex-col gap-6">
+          <div>
+            <p className="text-xs text-ink-faint mb-3">{t("settings.data.exportHint")}</p>
+            <div className="flex flex-wrap gap-3">
+              <a href={EXPORT_URLS.backup} className="btn-ink text-sm">
+                {t("settings.data.exportBackup")}
+              </a>
+              <a
+                href={EXPORT_URLS.markdown}
+                className="btn-ghost text-sm border hairline"
+              >
+                {t("settings.data.exportMarkdown")}
+              </a>
+            </div>
+          </div>
+
+          <div className="border-t hairline pt-5">
+            <p className="text-xs text-ink-faint mb-3">{t("settings.data.importHint")}</p>
+            <label
+              className={`inline-flex items-center gap-2 cursor-pointer btn-ghost text-sm border hairline ${
+                importing ? "opacity-50 pointer-events-none" : ""
+              }`}
+            >
+              <input
+                type="file"
+                accept=".zip"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) runImport(f);
+                  e.target.value = ""; // allow re-selecting the same file
+                }}
+              />
+              {importing ? t("settings.data.importing") : t("settings.data.importBtn")}
+            </label>
+            {importMsg && (
+              <p className="mt-3 text-sm text-amber">
+                {importMsg} {t("settings.data.importRefresh")}
+              </p>
+            )}
+          </div>
         </div>
       </section>
     </div>

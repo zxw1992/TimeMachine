@@ -1,8 +1,21 @@
 import { useEffect, useState } from "react";
-import { deleteEntry, entryImages, getEntry, type EntryOut } from "../api";
+import {
+  deleteEntry,
+  entryImages,
+  getEntry,
+  listTags,
+  updateEntry,
+  type EntryOut,
+} from "../api";
 import { hhmm, longDate } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
+import TagInput from "./TagInput";
+
+/** ISO timestamp → the "YYYY-MM-DDTHH:mm" form a datetime-local input wants. */
+function toLocalInput(iso: string): string {
+  return iso.slice(0, 16);
+}
 
 export default function EntryDrawer({
   entryId,
@@ -10,6 +23,7 @@ export default function EntryDrawer({
   onSelect,
   onClose,
   onDeleted,
+  onUpdated,
 }: {
   entryId: number | null;
   /** Ordered list of entry ids to navigate through (← / →). */
@@ -18,22 +32,109 @@ export default function EntryDrawer({
   onSelect?: (id: number) => void;
   onClose: () => void;
   onDeleted?: () => void;
+  /** Called after a successful edit so the parent list can refresh. */
+  onUpdated?: (entry: EntryOut) => void;
 }) {
   const { t, lang } = useI18n();
   const [entry, setEntry] = useState<EntryOut | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Edit mode: drafts mirror the entry's fields while editing.
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftBody, setDraftBody] = useState("");
+  const [draftWhen, setDraftWhen] = useState("");
+  const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState(false);
 
   useEffect(() => {
     if (entryId == null) {
       setEntry(null);
       return;
     }
+    setEditing(false);
     setLoading(true);
     setEntry(null);
     getEntry(entryId)
       .then(setEntry)
       .finally(() => setLoading(false));
   }, [entryId]);
+
+  function startEdit() {
+    if (!entry) return;
+    setDraftTitle(entry.title ?? "");
+    setDraftBody(entry.body);
+    setDraftWhen(toLocalInput(entry.occurred_at));
+    setDraftTags(entry.tags);
+    setEditError(false);
+    setEditing(true);
+    // Lazy-load the tag pool for autocomplete the first time anyone edits.
+    if (tagSuggestions.length === 0) {
+      listTags()
+        .then((ts) => setTagSuggestions(ts.map((x) => x.name)))
+        .catch(() => {});
+    }
+  }
+
+  async function handleSave() {
+    if (!entry) return;
+    setSaving(true);
+    setEditError(false);
+    try {
+      const updated = await updateEntry(entry.id, {
+        title: draftTitle.trim() || "",
+        body: draftBody,
+        occurred_at: draftWhen ? `${draftWhen}:00` : undefined,
+        tags: draftTags,
+      });
+      setEntry(updated);
+      setEditing(false);
+      onUpdated?.(updated);
+    } catch {
+      setEditError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // AI-suggested tags live in meta; accepting one turns it into a real tag.
+  const suggestedTags = Array.isArray(entry?.meta?.["suggested_tags"])
+    ? (entry!.meta!["suggested_tags"] as string[])
+    : [];
+  const notYetTaggedView = (have: string[]) =>
+    suggestedTags.filter(
+      (s) => !have.some((t) => t.toLowerCase() === s.toLowerCase()),
+    );
+
+  async function acceptTag(tag: string) {
+    if (!entry) return;
+    const next = [...entry.tags, tag];
+    const prev = entry;
+    setEntry({ ...entry, tags: next }); // optimistic
+    try {
+      const updated = await updateEntry(entry.id, { tags: next });
+      setEntry(updated);
+      onUpdated?.(updated);
+    } catch {
+      setEntry(prev); // revert on failure
+    }
+  }
+
+  // Favorite is a one-click toggle, available in both view and edit modes.
+  async function toggleFavorite() {
+    if (!entry) return;
+    const next = !entry.favorite;
+    setEntry({ ...entry, favorite: next }); // optimistic
+    try {
+      const updated = await updateEntry(entry.id, { favorite: next });
+      setEntry(updated);
+      onUpdated?.(updated);
+    } catch {
+      setEntry({ ...entry, favorite: !next }); // revert on failure
+    }
+  }
 
   // Prev/next bounds (current list order; prev = idx-1, next = idx+1).
   const idx =
@@ -49,9 +150,13 @@ export default function EntryDrawer({
     if (entryId == null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        onClose();
+        // While editing, Esc backs out of edit mode rather than closing.
+        if (editing) setEditing(false);
+        else onClose();
         return;
       }
+      // No prev/next navigation while editing — it would discard the draft.
+      if (editing) return;
       // Ignore when typing in an input/textarea/contenteditable.
       const t = e.target as HTMLElement | null;
       if (
@@ -72,7 +177,7 @@ export default function EntryDrawer({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [entryId, prevId, nextId, onClose, onSelect]);
+  }, [entryId, prevId, nextId, onClose, onSelect, editing]);
 
   const open = entryId != null;
   const images = entry ? entryImages(entry) : [];
@@ -114,10 +219,23 @@ export default function EntryDrawer({
               <span className="mono-time text-xs text-ink-faint">
                 #{entry.id}
               </span>
+              <button
+                onClick={toggleFavorite}
+                className={`text-base leading-none transition-colors duration-200 ${
+                  entry.favorite
+                    ? "text-amber"
+                    : "text-ink-faint hover:text-amber"
+                }`}
+                aria-label={t(entry.favorite ? "drawer.unfavorite" : "drawer.favorite")}
+                title={t(entry.favorite ? "drawer.unfavorite" : "drawer.favorite")}
+                aria-pressed={entry.favorite}
+              >
+                {entry.favorite ? "♥" : "♡"}
+              </button>
               <div className="ml-auto flex items-center gap-1">
                 <button
                   onClick={() => prevId != null && onSelect?.(prevId)}
-                  disabled={prevId == null}
+                  disabled={prevId == null || editing}
                   className="btn-ghost text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                   aria-label={t("drawer.prev")}
                   title={t("drawer.prevTitle")}
@@ -126,7 +244,7 @@ export default function EntryDrawer({
                 </button>
                 <button
                   onClick={() => nextId != null && onSelect?.(nextId)}
-                  disabled={nextId == null}
+                  disabled={nextId == null || editing}
                   className="btn-ghost text-sm disabled:opacity-30 disabled:cursor-not-allowed"
                   aria-label={t("drawer.next")}
                   title={t("drawer.nextTitle")}
@@ -145,9 +263,23 @@ export default function EntryDrawer({
 
             {/* Content */}
             <article className="px-8 py-8 animate-fade-in">
-              <div className="mono-time text-xs text-ink-faint tracking-wider mb-3">
-                {longDate(entry.occurred_at, lang)} · {hhmm(entry.occurred_at)}
-              </div>
+              {editing ? (
+                <label className="block mb-5">
+                  <span className="mono-time text-xs text-ink-faint tracking-wider">
+                    {t("drawer.timeLabel")}
+                  </span>
+                  <input
+                    type="datetime-local"
+                    value={draftWhen}
+                    onChange={(e) => setDraftWhen(e.target.value)}
+                    className="mt-1 w-full bg-transparent border hairline rounded-md px-3 py-2 text-sm text-ink focus:outline-none focus:border-amber"
+                  />
+                </label>
+              ) : (
+                <div className="mono-time text-xs text-ink-faint tracking-wider mb-3">
+                  {longDate(entry.occurred_at, lang)} · {hhmm(entry.occurred_at)}
+                </div>
+              )}
               {entry.status !== "done" && (
                 <div
                   className={`mb-4 text-sm ${
@@ -159,10 +291,74 @@ export default function EntryDrawer({
                     : t("timeline.processing")}
                 </div>
               )}
-              {entry.title && (
-                <h2 className="serif-title text-2xl text-ink leading-snug mb-6">
-                  {entry.title}
-                </h2>
+              {editing ? (
+                <label className="block mb-6">
+                  <span className="mono-time text-xs text-ink-faint tracking-wider">
+                    {t("drawer.titleLabel")}
+                  </span>
+                  <input
+                    type="text"
+                    value={draftTitle}
+                    onChange={(e) => setDraftTitle(e.target.value)}
+                    placeholder={t("drawer.titlePlaceholder")}
+                    className="mt-1 w-full bg-transparent border hairline rounded-md px-3 py-2 serif-title text-xl text-ink focus:outline-none focus:border-amber"
+                  />
+                </label>
+              ) : (
+                entry.title && (
+                  <h2 className="serif-title text-2xl text-ink leading-snug mb-6">
+                    {entry.title}
+                  </h2>
+                )
+              )}
+
+              {/* Tags */}
+              {editing ? (
+                <div className="mb-6">
+                  <span className="mono-time text-xs text-ink-faint tracking-wider">
+                    {t("drawer.tagsLabel")}
+                  </span>
+                  <div className="mt-1">
+                    <TagInput
+                      tags={draftTags}
+                      onChange={setDraftTags}
+                      suggestions={tagSuggestions}
+                    />
+                  </div>
+                  <SuggestedTags
+                    tags={notYetTaggedView(draftTags)}
+                    onAccept={(tag) =>
+                      setDraftTags((prev) =>
+                        prev.some((x) => x.toLowerCase() === tag.toLowerCase())
+                          ? prev
+                          : [...prev, tag],
+                      )
+                    }
+                    label={t("drawer.suggestedLabel")}
+                  />
+                </div>
+              ) : (
+                (entry.tags.length > 0 || notYetTaggedView(entry.tags).length > 0) && (
+                  <div className="mb-6 space-y-2">
+                    {entry.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {entry.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-surface2 text-ink-muted px-2.5 py-0.5 text-xs"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <SuggestedTags
+                      tags={notYetTaggedView(entry.tags)}
+                      onAccept={acceptTag}
+                      label={t("drawer.suggestedLabel")}
+                    />
+                  </div>
+                )
               )}
 
               {entry.kind === "image" && images.length > 0 && (
@@ -192,24 +388,74 @@ export default function EntryDrawer({
                 </div>
               )}
 
-              <p className="text-[15px] leading-8 text-ink whitespace-pre-wrap break-words">
-                {entry.body}
-              </p>
+              {editing ? (
+                <label className="block">
+                  <span className="mono-time text-xs text-ink-faint tracking-wider">
+                    {t("drawer.bodyLabel")}
+                  </span>
+                  <textarea
+                    value={draftBody}
+                    onChange={(e) => setDraftBody(e.target.value)}
+                    rows={10}
+                    className="mt-1 w-full bg-transparent border hairline rounded-md px-3 py-2 text-[15px] leading-8 text-ink resize-y focus:outline-none focus:border-amber"
+                  />
+                </label>
+              ) : (
+                <p className="text-[15px] leading-8 text-ink whitespace-pre-wrap break-words">
+                  {entry.body}
+                </p>
+              )}
 
-              <footer className="mt-12 pt-4 border-t hairline flex items-center justify-between text-xs text-ink-faint">
-                <span className="mono-time">
-                  {t("drawer.savedAt", {
-                    time: new Date(entry.created_at).toLocaleString(
-                      lang === "en" ? "en-US" : "zh-CN",
-                    ),
-                  })}
-                </span>
-                <button
-                  onClick={handleDelete}
-                  className="hover:text-amber transition-colors duration-200"
-                >
-                  {t("drawer.delete")}
-                </button>
+              <footer className="mt-12 pt-4 border-t hairline flex items-center justify-between gap-3 text-xs text-ink-faint">
+                {editing ? (
+                  <>
+                    {editError && (
+                      <span className="text-amber">{t("drawer.editError")}</span>
+                    )}
+                    <div className="ml-auto flex items-center gap-3">
+                      <button
+                        onClick={() => setEditing(false)}
+                        disabled={saving}
+                        className="hover:text-ink transition-colors duration-200 disabled:opacity-40"
+                      >
+                        {t("drawer.cancel")}
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={saving || !draftBody.trim()}
+                        className="btn-ink text-xs px-4 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {saving ? t("drawer.saving") : t("drawer.save")}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="mono-time">
+                      {t("drawer.savedAt", {
+                        time: new Date(entry.created_at).toLocaleString(
+                          lang === "en" ? "en-US" : "zh-CN",
+                        ),
+                      })}
+                    </span>
+                    <div className="flex items-center gap-4">
+                      {entry.status === "done" && (
+                        <button
+                          onClick={startEdit}
+                          className="hover:text-ink transition-colors duration-200"
+                        >
+                          {t("drawer.edit")}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleDelete}
+                        className="hover:text-amber transition-colors duration-200"
+                      >
+                        {t("drawer.delete")}
+                      </button>
+                    </div>
+                  </>
+                )}
               </footer>
             </article>
           </div>
@@ -220,5 +466,35 @@ export default function EntryDrawer({
         ) : null}
       </aside>
     </>
+  );
+}
+
+/** AI-suggested tags shown as dashed "+ tag" chips; click to accept one. */
+function SuggestedTags({
+  tags,
+  onAccept,
+  label,
+}: {
+  tags: string[];
+  onAccept: (tag: string) => void;
+  label: string;
+}) {
+  if (tags.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="mono-time text-[10px] text-ink-faint mr-1">{label}</span>
+      {tags.map((tag) => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => onAccept(tag)}
+          className="rounded-full border border-dashed border-divider text-ink-faint
+                     hover:text-amber hover:border-amber px-2.5 py-0.5 text-xs
+                     transition-colors duration-200"
+        >
+          + {tag}
+        </button>
+      ))}
+    </div>
   );
 }

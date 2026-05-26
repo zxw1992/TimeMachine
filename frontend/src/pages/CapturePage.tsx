@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createEntry, getEntry, listEntries } from "../api";
+import { createEntry, getEntry, listEntries, listTags } from "../api";
 import AudioPlayer from "../components/AudioPlayer";
 import EntryDrawer from "../components/EntryDrawer";
 import ErrorBanner from "../components/ErrorBanner";
 import OnboardingCard from "../components/OnboardingCard";
 import OnThisDay from "../components/OnThisDay";
 import ProcessingTray, { type Job } from "../components/ProcessingTray";
+import TagInput from "../components/TagInput";
 import { useI18n } from "../lib/i18n";
 
 type Mode = "text" | "image" | "audio";
@@ -30,6 +31,8 @@ export default function CapturePage() {
   const [onboardKey, setOnboardKey] = useState(0);
   const [text, setText] = useState(() => localStorage.getItem(DRAFT_KEY) ?? "");
   const [hint, setHint] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   // Image mode supports a batch: each picked image becomes its own entry.
@@ -65,6 +68,13 @@ export default function CapturePage() {
         }));
         setJobs(recent);
       })
+      .catch(() => {});
+  }, []);
+
+  // Existing tags feed the capture box's autocomplete.
+  useEffect(() => {
+    listTags()
+      .then((ts) => setTagSuggestions(ts.map((t) => t.name)))
       .catch(() => {});
   }, []);
 
@@ -170,6 +180,7 @@ export default function CapturePage() {
       if (trimmedText) fd.append("text", trimmedText);
       if (trimmedHint) fd.append("hint", trimmedHint);
       if (occurredAt) fd.append("occurred_at", occurredAt);
+      for (const tag of tags) fd.append("tags", tag);
       if (mode === "image") {
         for (const f of images) fd.append("files", f);
       } else if (mode === "audio" && file) {
@@ -184,10 +195,17 @@ export default function CapturePage() {
       };
       setJobs((prev) => [job, ...prev.filter((j) => j.id !== job.id)].slice(0, MAX_RECENT));
 
+      // Merge any newly-coined tags into the suggestion pool for this session.
+      if (tags.length) {
+        setTagSuggestions((prev) =>
+          Array.from(new Set([...prev, ...tags])),
+        );
+      }
       setText("");
       setHint("");
       setFile(null);
       setImages([]);
+      setTags([]);
       setShowTime(false);
       setCustomTime("");
       localStorage.removeItem(DRAFT_KEY);
@@ -432,6 +450,16 @@ export default function CapturePage() {
         {micError && <div className="mt-3 text-sm text-amber">{micError}</div>}
         {error != null && <ErrorBanner error={error} onRetry={submitCapture} />}
 
+        {/* Tags */}
+        <div className="mt-4">
+          <TagInput
+            tags={tags}
+            onChange={setTags}
+            suggestions={tagSuggestions}
+            placeholder={t("tags.placeholder")}
+          />
+        </div>
+
         <div className="mt-4 text-xs">
           {!showTime ? (
             <button
@@ -490,6 +518,7 @@ export default function CapturePage() {
         entryId={openId}
         onClose={() => setOpenId(null)}
         onDeleted={() => setMemoriesKey((k) => k + 1)}
+        onUpdated={() => setMemoriesKey((k) => k + 1)}
       />
     </div>
   );
