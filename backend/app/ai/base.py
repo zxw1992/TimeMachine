@@ -16,6 +16,8 @@ class AIProvider(Protocol):
 
     async def suggest_tags(self, body: str) -> list[str]: ...
 
+    async def summarize_period(self, body: str) -> str: ...
+
     async def embed(self, text: str) -> list[float]: ...
 
 
@@ -67,6 +69,29 @@ def parse_suggested_tags(raw: str) -> list[str]:
             break
     return out
 
+
+REPORT_PROMPT = (
+    "You are writing a warm, reflective review of a person's memory journal for "
+    "one period (a week or a month). You are given the period's stats and its "
+    "entries (date · title · short excerpt · tags).\n\n"
+    "Write in the SAME LANGUAGE as the entries. Return ONLY a JSON object — no "
+    "markdown fences, no text around it — with exactly these fields:\n"
+    '- "headline": a short evocative title for the period (<=16 chars for CJK, '
+    "<=8 words otherwise).\n"
+    '- "narrative": 2-3 short paragraphs telling the story of the period — what '
+    "the person focused on, recurring threads, the overall mood. Warm, personal, "
+    'second person. Separate paragraphs with "\\n\\n".\n'
+    '- "themes": an array of 3-6 short theme phrases (1-3 words each).\n'
+    '- "highlight": one short standout line capturing a memorable moment.\n'
+    '- "poster_svg": a single self-contained decorative SVG string for the '
+    'period. Requirements: starts with "<svg" and uses viewBox="0 0 800 280"; '
+    "NO <script>, <image>, <foreignObject>, or event handlers; only simple "
+    "shapes, paths, gradients, and at most a few words of <text>. Use a warm "
+    "paper palette — background #faf7f2, ink #2b2723, accent amber #c8862a, soft "
+    "#e8d9c0. Keep it under 3000 characters, abstract and elegant. If you cannot, "
+    'use an empty string.\n\n'
+    "Period data:\n{body}"
+)
 
 IMAGE_PROMPT = (
     "Look carefully at this image and write a concise but information-dense "

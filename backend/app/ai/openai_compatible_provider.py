@@ -24,7 +24,13 @@ from pathlib import Path
 
 from openai import AsyncOpenAI
 
-from .base import IMAGE_PROMPT, SUMMARY_PROMPT, TAGS_PROMPT, parse_suggested_tags
+from .base import (
+    IMAGE_PROMPT,
+    REPORT_PROMPT,
+    SUMMARY_PROMPT,
+    TAGS_PROMPT,
+    parse_suggested_tags,
+)
 
 
 class OpenAICompatibleProvider:
@@ -84,6 +90,15 @@ class OpenAICompatibleProvider:
             max_tokens=60,
         )
         return parse_suggested_tags(resp.choices[0].message.content or "")
+
+    async def summarize_period(self, body: str) -> str:
+        prompt = REPORT_PROMPT.format(body=body[:8000])
+        resp = await self.client.chat.completions.create(
+            model=self.text_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2500,
+        )
+        return resp.choices[0].message.content or ""
 
     async def transcribe_audio(self, audio_path: Path) -> str:
         if "transcribe" not in self.caps or not self.transcribe_model:

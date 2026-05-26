@@ -6,7 +6,13 @@ from pathlib import Path
 import google.generativeai as genai
 
 from ..config import get_settings
-from .base import IMAGE_PROMPT, SUMMARY_PROMPT, TAGS_PROMPT, parse_suggested_tags
+from .base import (
+    IMAGE_PROMPT,
+    REPORT_PROMPT,
+    SUMMARY_PROMPT,
+    TAGS_PROMPT,
+    parse_suggested_tags,
+)
 
 
 class GeminiProvider:
@@ -66,6 +72,15 @@ class GeminiProvider:
             return (resp.text or "").strip()
 
         return parse_suggested_tags(await asyncio.to_thread(_call))
+
+    async def summarize_period(self, body: str) -> str:
+        prompt = REPORT_PROMPT.format(body=body[:8000])
+
+        def _call() -> str:
+            resp = self.model.generate_content(prompt)
+            return resp.text or ""
+
+        return await asyncio.to_thread(_call)
 
     async def embed(self, text: str) -> list[float]:
         def _call() -> list[float]:

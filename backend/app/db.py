@@ -166,6 +166,40 @@ def _purge_orphan_tags(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM entry_tags)")
 
 
+# ───────────────────────── Reports ─────────────────────────
+
+
+def get_report(kind: str, period_key: str) -> dict | None:
+    row = get_conn().execute(
+        "SELECT payload, entry_count, created_at FROM reports "
+        "WHERE kind = ? AND period_key = ?",
+        (kind, period_key),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def upsert_report(
+    kind: str,
+    period_key: str,
+    period_start: str,
+    period_end: str,
+    entry_count: int,
+    payload: str,
+) -> None:
+    """Store (or replace) the cached AI report for a period."""
+    with transaction() as conn:
+        conn.execute(
+            "INSERT INTO reports(kind, period_key, period_start, period_end, "
+            "entry_count, payload, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, datetime('now')) "
+            "ON CONFLICT(kind, period_key) DO UPDATE SET "
+            "period_start=excluded.period_start, period_end=excluded.period_end, "
+            "entry_count=excluded.entry_count, payload=excluded.payload, "
+            "created_at=excluded.created_at",
+            (kind, period_key, period_start, period_end, entry_count, payload),
+        )
+
+
 def fail_stuck_entries() -> int:
     """Mark entries left mid-processing (e.g. by a server restart) as 'error'.
 
@@ -222,6 +256,20 @@ def _init_schema(conn: sqlite3.Connection) -> None:
             PRIMARY KEY (entry_id, tag_id)
         );
         CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id);
+
+        -- Cached AI review reports, one row per (kind, period). `payload` holds
+        -- the generated JSON (headline / narrative / themes / highlight / svg).
+        CREATE TABLE IF NOT EXISTS reports (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind         TEXT NOT NULL,
+            period_key   TEXT NOT NULL,
+            period_start TEXT NOT NULL,
+            period_end   TEXT NOT NULL,
+            entry_count  INTEGER NOT NULL DEFAULT 0,
+            payload      TEXT NOT NULL,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE (kind, period_key)
+        );
 
         CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
             title, body, content='entries', content_rowid='id',

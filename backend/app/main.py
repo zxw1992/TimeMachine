@@ -14,6 +14,7 @@ from .logging_config import configure_logging, get_logger
 from .routes import (
     entries,
     on_this_day,
+    reports,
     search,
     tags,
     timeline,
@@ -63,6 +64,7 @@ app.include_router(settings_routes.router)
 app.include_router(on_this_day.router)
 app.include_router(tags.router)
 app.include_router(transfer.router)
+app.include_router(reports.router)
 
 # Serve uploaded files (image thumbnails, original audio) to the frontend.
 app.mount("/files", StaticFiles(directory=str(settings.data_path)), name="files")
