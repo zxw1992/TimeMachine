@@ -150,6 +150,26 @@ export async function listTags(): Promise<TagInfo[]> {
   return request<TagInfo[]>("/api/tags");
 }
 
+// ───────────────────────── Export / import ─────────────────────────
+
+/** Relative URLs for the streamed zip downloads (used as anchor hrefs). */
+export const EXPORT_URLS = {
+  backup: "/api/export/backup",
+  markdown: "/api/export/markdown",
+} as const;
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  total: number;
+}
+
+export async function importBackup(file: File): Promise<ImportResult> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return request<ImportResult>("/api/import", { method: "POST", body: fd });
+}
+
 export async function getEntry(id: number): Promise<EntryOut> {
   return request<EntryOut>(`/api/entries/${id}`);
 }

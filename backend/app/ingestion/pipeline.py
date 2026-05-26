@@ -238,19 +238,34 @@ async def update_entry(
     # The text edit above is committed. Re-embed on body change; an embedding
     # failure leaves a stale vector but never loses the saved edit.
     if body_changed:
-        try:
-            embedding = await get_provider().embed(f"{new_title or ''}\n{new_body}")
-            ensure_vec_table(len(embedding))
-            with transaction() as conn:
-                conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
-                conn.execute(
-                    "INSERT INTO entries_vec(entry_id, embedding) VALUES (?, ?)",
-                    (entry_id, serialize_vector(embedding)),
-                )
-        except Exception:  # noqa: BLE001
-            log.exception("re-embed failed for edited entry %s", entry_id)
+        await reembed_entry(entry_id)
 
     return fetch_entry(entry_id)
+
+
+async def reembed_entry(entry_id: int) -> bool:
+    """(Re)compute an entry's embedding and replace its vector row.
+
+    Used by edits and by import (where entries arrive with final text but no
+    vector). Best-effort: returns False and logs on failure (e.g. no API key),
+    leaving full-text search — which is trigger-driven — still working.
+    """
+    row = fetch_entry(entry_id)
+    if row is None:
+        return False
+    try:
+        embedding = await get_provider().embed(f"{row['title'] or ''}\n{row['body']}")
+        ensure_vec_table(len(embedding))
+        with transaction() as conn:
+            conn.execute("DELETE FROM entries_vec WHERE entry_id = ?", (entry_id,))
+            conn.execute(
+                "INSERT INTO entries_vec(entry_id, embedding) VALUES (?, ?)",
+                (entry_id, serialize_vector(embedding)),
+            )
+        return True
+    except Exception:  # noqa: BLE001
+        log.exception("embedding failed for entry %s", entry_id)
+        return False
 
 
 def fetch_entry(entry_id: int) -> dict | None:
