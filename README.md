@@ -87,10 +87,11 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1
 
 Open http://localhost:5173 in your browser:
 
-- **Capture** — choose text / image / audio, then type or upload. `⌘V` pastes a screenshot directly, and you can drop in **several images at once** (each becomes its own entry). Audio records via the browser microphone. **Add tags inline** as you capture, with autocomplete from your existing tags. Entries are saved immediately and organized by AI in the background, with staged progress; you can optionally set a custom timestamp to backdate a memory. First-time users get a short setup guide, and past memories resurface under **"On this day."**
-- **Timeline** — a vertical "river of time" grouped by day, with a monthly **calendar heatmap** for a bird's-eye view, and you can **filter by tag or favorites**. Click any title to open the detail drawer on the right, where you can **edit** the title / body / time, **favorite** it (♥), and **manage tags** — including **one-click AI tag suggestions** generated from the entry's content. Editing the title or body automatically re-embeds the entry so search stays in sync.
-- **Search** — describe what you're looking for in natural language (e.g. *"the menu I saw last week"*); results are ranked by semantic similarity, and show each entry's tags and favorite state.
-- **Settings** — configure AI providers, API keys, and models live; add custom OpenAI-compatible providers; switch language and theme. No file editing or restart. **Export & import** lives here too: download a full backup (data + media) as a zip or a readable Markdown archive, and restore a backup with an additive, de-duplicated import.
+- **Capture** — jot text, drop images (`⌘V` or several at once), or record audio, and add tags as you go. Entries are organized by AI in the background; past ones resurface as **"On this day."**
+- **Timeline** — a vertical "river of time" by day, with a calendar heatmap and tag / favorite filters. Open any entry to read it, edit the title / body / time, favorite it (♥), or tag it — with one-click **AI tag suggestions**.
+- **Search** — find memories by meaning, in natural language.
+- **Review** — weekly / monthly recaps: instant stats (counts, activity, top tags) plus an on-demand **AI summary** — a headline, a story-like narrative, themes, and a generated poster.
+- **Settings** — switch AI providers, models, and keys live; **export** a full backup (or Markdown) and re-import it. No file editing or restart.
 
 ---
 
@@ -144,7 +145,6 @@ rm backend/data/timemachine.db
 - Automatic screenshot / always-on microphone (privacy-sensitive)
 - Global hotkey / menu-bar app
 - Multi-user, cloud sync, encryption
-- AI-generated monthly / yearly recap reports
 - Importing from other apps (Day One / Bear / Notion); PDF export
 
 ---
