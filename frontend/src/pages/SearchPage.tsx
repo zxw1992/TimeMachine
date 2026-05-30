@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { search, type SearchHit } from "../api";
 import ErrorBanner from "../components/ErrorBanner";
 import RiverEntry from "../components/RiverEntry";
@@ -21,6 +22,7 @@ const HISTORY_PREVIEW = 5;
 
 export default function SearchPage() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -190,7 +192,12 @@ export default function SearchPage() {
             <span className="flex-1 h-px bg-divider" />
           </div>
           {hits.map((h) => (
-            <RiverEntry key={h.entry.id} entry={h.entry} score={h.score} />
+            <RiverEntry
+              key={h.entry.id}
+              entry={h.entry}
+              score={h.score}
+              onLocate={() => navigate(`/timeline?focus=${h.entry.id}`)}
+            />
           ))}
         </section>
       )}

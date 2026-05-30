@@ -48,16 +48,29 @@ export default function TimelinePage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [allTags, setAllTags] = useState<TagInfo[]>([]);
   const pendingScrollDay = useRef<string | null>(null);
+  const pendingFocusId = useRef<number | null>(null);
+  const [flashId, setFlashId] = useState<number | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Deep link from the capture page's "Recent" list: ?entry=<id> opens that
-  // entry's detail drawer. Consume the param so it doesn't reopen on refresh.
+  // Consume deep-link params on mount, then strip them so they don't re-fire on
+  // refresh. ?entry=<id> opens the detail drawer (capture page's Recent list);
+  // ?focus=<id> scrolls the axis to that entry and flashes it (search results),
+  // switching to "all" so the entry loads no matter how long ago it happened.
+  // Build a fresh URLSearchParams rather than mutating the shared one — mutating
+  // it races badly under StrictMode's double-invoked effects.
   useEffect(() => {
     const entry = searchParams.get("entry");
-    if (!entry) return;
-    setOpenId(Number(entry));
-    searchParams.delete("entry");
-    setSearchParams(searchParams, { replace: true });
+    const focus = searchParams.get("focus");
+    if (!entry && !focus) return;
+    if (entry) setOpenId(Number(entry));
+    if (focus) {
+      pendingFocusId.current = Number(focus);
+      setRange("all");
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("entry");
+    next.delete("focus");
+    setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -110,6 +123,19 @@ export default function TimelinePage() {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
       pendingScrollDay.current = null;
     }
+  }, [items, loading]);
+
+  // After data loads, scroll to and flash the entry requested via ?focus=<id>.
+  useEffect(() => {
+    if (pendingFocusId.current == null || loading) return;
+    const id = pendingFocusId.current;
+    const el = document.getElementById(`entry-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    pendingFocusId.current = null;
+    setFlashId(id);
+    const timer = setTimeout(() => setFlashId((c) => (c === id ? null : c)), 2200);
+    return () => clearTimeout(timer);
   }, [items, loading]);
 
   function handleHeatmapDayClick(day: string) {
@@ -269,13 +295,18 @@ export default function TimelinePage() {
                 return (
                   <li
                     key={it.id}
-                    className="relative"
+                    id={`entry-${it.id}`}
+                    className="relative scroll-mt-20"
                     style={mt > 0 ? { marginTop: `${mt}px` } : undefined}
                   >
                     <button
                       onClick={() => setOpenId(it.id)}
-                      className="group w-full flex items-baseline gap-4 py-2 px-2 -mx-2 rounded-md
-                                 text-left hover:bg-surface2 transition-colors duration-150"
+                      className={`group w-full flex items-baseline gap-4 py-2 px-2 -mx-2 rounded-md
+                                 text-left transition-colors duration-150 ${
+                                   flashId === it.id
+                                     ? "bg-amber/15 ring-1 ring-amber/50"
+                                     : "hover:bg-surface2"
+                                 }`}
                     >
                       {/* Entry dot — color by kind, or pulse while processing */}
                       <span

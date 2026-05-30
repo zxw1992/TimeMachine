@@ -238,6 +238,7 @@ const zh: Dict = {
   "entry.match": "· 相似 {pct}%",
   "entry.expand": "展开",
   "entry.collapse": "收起",
+  "entry.locate": "在时间轴查看",
   "entry.delete": "删除",
 
   // Audio player
@@ -504,6 +505,7 @@ const en: Dict = {
   "entry.match": "· {pct}% match",
   "entry.expand": "Expand",
   "entry.collapse": "Collapse",
+  "entry.locate": "View on timeline",
   "entry.delete": "Delete",
 
   // Audio player
