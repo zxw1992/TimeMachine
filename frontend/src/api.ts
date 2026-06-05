@@ -1,10 +1,13 @@
-export type EntryKind = "text" | "image" | "audio";
+export type EntryKind = "text" | "image" | "audio" | "link";
 
-// Processing lifecycle: queued → (describing|transcribing) → titling → embedding → done | error
+// Processing lifecycle:
+//   queued → (describing | transcribing | fetching→summarizing) → titling → embedding → done | error
 export type EntryStatus =
   | "queued"
   | "describing"
   | "transcribing"
+  | "fetching"
+  | "summarizing"
   | "titling"
   | "embedding"
   | "done"
@@ -60,6 +63,49 @@ export function entryImages(entry: {
     return [{ full: entry.source_url, thumb }];
   }
   return [];
+}
+
+/** A saved web link: the original URL plus extracted card metadata. */
+export interface EntryLink {
+  url: string;
+  site?: string;
+  author?: string;
+  published?: string;
+  image?: string;
+  excerpt?: string;
+}
+
+/**
+ * The link info for a "link" entry, or null for other kinds. The URL lives at
+ * meta.url (present from capture); the richer card fields land under meta.link
+ * once the page has been fetched.
+ */
+export function entryLink(entry: {
+  kind: EntryKind;
+  meta: Record<string, unknown> | null;
+}): EntryLink | null {
+  if (entry.kind !== "link") return null;
+  const url = entry.meta?.["url"];
+  if (typeof url !== "string" || !url) return null;
+  const l = (entry.meta?.["link"] ?? {}) as Record<string, unknown>;
+  const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+  return {
+    url,
+    site: str(l["site"]),
+    author: str(l["author"]),
+    published: str(l["published"]),
+    image: str(l["image"]),
+    excerpt: str(l["excerpt"]),
+  };
+}
+
+/** Hostname for display, e.g. "https://www.foo.com/x" → "foo.com". */
+export function linkHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
 }
 
 export interface TimelineItem {

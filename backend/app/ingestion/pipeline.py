@@ -19,8 +19,14 @@ from ..db import (
     update_entry_status,
 )
 from ..logging_config import get_logger
+from .web import fetch_article, normalize_url
 
 log = get_logger(__name__)
+
+# Cap the stored article text: keeps the DB lean and the entry body readable.
+# (Embedding already truncates to its own limit, so the tail wouldn't be indexed
+# anyway — the original URL is kept for full reading.)
+_MAX_ARTICLE_CHARS = 16000
 
 
 def _save_upload(file_bytes: bytes, ext: str) -> Path:
@@ -55,6 +61,8 @@ def create_pending(
     uploads: list[tuple[bytes, str]] | None,
     hint: str | None,
     occurred_at: str | None,
+    url: str | None = None,
+    lang: str | None = None,
 ) -> int:
     """Persist a capture immediately as a 'queued' entry and return its id.
 
@@ -98,10 +106,17 @@ def create_pending(
         path = _save_upload(data, ext)
         source_rel = str(path.relative_to(settings.data_path))
         body = user_text  # filled in after transcription
+    elif kind == "link":
+        # The URL is validated/normalized now (fast, local); fetching + AI happen
+        # later in process_entry. Keep the link in meta so it shows as a chip even
+        # while the entry is still being fetched.
+        meta["url"] = normalize_url(url or "")
+        body = user_text or meta["url"]  # placeholder until the summary lands
     else:
         raise ValueError(f"未知 kind: {kind}")
 
-    meta["_pending"] = {"user_text": user_text, "hint": hint}
+    # `lang` is the UI language; it steers the article summary's output language.
+    meta["_pending"] = {"user_text": user_text, "hint": hint, "lang": lang}
     occurred = occurred_at or datetime.now().isoformat(timespec="seconds")
 
     with transaction() as conn:
@@ -128,9 +143,13 @@ async def process_entry(entry_id: int) -> None:
         pending = meta.pop("_pending", {})
         user_text = pending.get("user_text") or ""
         hint = pending.get("hint")
+        lang = pending.get("lang") or "zh"
 
         provider = get_provider()
         settings = get_settings()
+        # Most kinds let the AI invent a title from the body; a link uses the
+        # article's real headline instead, when one was extracted.
+        title_override: str | None = None
 
         if kind == "image":
             update_entry_status(entry_id, "describing")
@@ -151,11 +170,42 @@ async def process_entry(entry_id: int) -> None:
             path = settings.data_path / row["source_path"]
             transcript = await provider.transcribe_audio(path) or "(empty transcript)"
             body = f"{user_text}\n\n[Transcript] {transcript}" if user_text else transcript
+        elif kind == "link":
+            update_entry_status(entry_id, "fetching")
+            article = await fetch_article(meta["url"])
+            full_text = article["text"][:_MAX_ARTICLE_CHARS]
+
+            update_entry_status(entry_id, "summarizing")
+            try:
+                summary = (await provider.summarize_article(full_text, lang)).strip()
+            except Exception:  # noqa: BLE001 — summary is best-effort, never block ingestion
+                log.warning("article summary failed for entry %s", entry_id, exc_info=True)
+                summary = article.get("excerpt") or ""
+
+            # Body = (optional note) + AI summary as the lead, then the original
+            # article text after a divider. The summary-first order means the
+            # timeline preview and the (truncated) embedding both capture the gist.
+            lead = "\n\n".join(s for s in (user_text, summary) if s)
+            body = f"{lead}\n\n———\n\n{full_text}" if lead else full_text
+
+            # Rich card metadata for the link, dropping empty fields.
+            meta["link"] = {
+                k: v
+                for k, v in {
+                    "site": article.get("site"),
+                    "author": article.get("author"),
+                    "published": article.get("published"),
+                    "image": article.get("image"),
+                    "excerpt": article.get("excerpt"),
+                }.items()
+                if v
+            }
+            title_override = (article.get("title") or "").strip()[:60] or None
         else:
             body = user_text
 
         update_entry_status(entry_id, "titling")
-        title = await provider.summarize_title(body)
+        title = title_override or await provider.summarize_title(body)
 
         # Suggest tags for the user to accept later (best-effort — never block
         # ingestion on it). Stored under meta['suggested_tags'], not applied.

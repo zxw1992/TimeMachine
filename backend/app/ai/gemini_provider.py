@@ -11,6 +11,7 @@ from .base import (
     REPORT_PROMPT,
     SUMMARY_PROMPT,
     TAGS_PROMPT,
+    build_article_prompt,
     parse_suggested_tags,
 )
 
@@ -63,6 +64,15 @@ class GeminiProvider:
 
         title = await asyncio.to_thread(_call)
         return title[:30]
+
+    async def summarize_article(self, text: str, lang: str = "zh") -> str:
+        prompt = build_article_prompt(text, lang)
+
+        def _call() -> str:
+            resp = self.model.generate_content(prompt)
+            return (resp.text or "").strip()
+
+        return await asyncio.to_thread(_call)
 
     async def suggest_tags(self, body: str) -> list[str]:
         prompt = TAGS_PROMPT.format(body=body[:2000])

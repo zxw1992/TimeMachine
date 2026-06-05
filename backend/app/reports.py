@@ -60,7 +60,7 @@ def _period_entries(start: datetime, end: datetime) -> list[dict]:
 
 
 def compute_stats(entries: list[dict], start: datetime, end: datetime) -> dict:
-    by_kind = {"text": 0, "image": 0, "audio": 0}
+    by_kind = {"text": 0, "image": 0, "audio": 0, "link": 0}
     favorites = 0
     for e in entries:
         by_kind[e["kind"]] = by_kind.get(e["kind"], 0) + 1
@@ -107,7 +107,8 @@ def _entries_context(entries: list[dict], stats: dict) -> str:
     head = (
         f"{stats['count']} entries — "
         f"{stats['by_kind']['text']} text, {stats['by_kind']['image']} image, "
-        f"{stats['by_kind']['audio']} audio; {stats['favorites']} favorited.\n"
+        f"{stats['by_kind']['audio']} audio, {stats['by_kind']['link']} link; "
+        f"{stats['favorites']} favorited.\n"
     )
     tags = ", ".join(f"{t['name']}({t['count']})" for t in stats["top_tags"])
     if tags:

@@ -53,7 +53,7 @@ def test_compute_stats_counts_kinds_and_days():
 
     stats = compute_stats(_period_entries(start, end), start, end)
     assert stats["count"] == 2
-    assert stats["by_kind"] == {"text": 1, "image": 1, "audio": 0}
+    assert stats["by_kind"] == {"text": 1, "image": 1, "audio": 0, "link": 0}
     assert len(stats["daily"]) == 7  # one bar per day of the week
 
 

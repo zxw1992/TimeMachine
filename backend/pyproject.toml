@@ -16,6 +16,7 @@ dependencies = [
     "anthropic>=0.39",
     "openai>=1.54",
     "google-generativeai>=0.8",
+    "trafilatura>=2.0.0",
 ]
 
 [build-system]

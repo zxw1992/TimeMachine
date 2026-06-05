@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import {
   deleteEntry,
   entryImages,
+  entryLink,
   getEntry,
+  linkHost,
   listTags,
   updateEntry,
   type EntryOut,
@@ -181,6 +183,7 @@ export default function EntryDrawer({
 
   const open = entryId != null;
   const images = entry ? entryImages(entry) : [];
+  const link = entry ? entryLink(entry) : null;
 
   async function handleDelete() {
     if (!entry) return;
@@ -359,6 +362,38 @@ export default function EntryDrawer({
                     />
                   </div>
                 )
+              )}
+
+              {link && (
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mb-6 block rounded-lg hairline border overflow-hidden
+                             hover:border-amber transition-colors duration-200 group/link"
+                >
+                  {link.image && (
+                    <img
+                      src={link.image}
+                      alt=""
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                      className="block w-full max-h-48 object-cover"
+                    />
+                  )}
+                  <div className="p-3">
+                    <div className="text-xs text-ink-faint truncate">
+                      {[link.site || linkHost(link.url), link.author, link.published]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </div>
+                    <div className="mt-0.5 text-sm text-amber group-hover/link:underline break-all">
+                      {t("entry.link.open")}
+                    </div>
+                  </div>
+                </a>
               )}
 
               {entry.kind === "image" && images.length > 0 && (

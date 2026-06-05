@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-EntryKind = Literal["text", "image", "audio"]
+EntryKind = Literal["text", "image", "audio", "link"]
 
 
 class EntryOut(BaseModel):

@@ -12,6 +12,7 @@ from .base import (
     REPORT_PROMPT,
     SUMMARY_PROMPT,
     TAGS_PROMPT,
+    build_article_prompt,
     parse_suggested_tags,
 )
 
@@ -72,6 +73,16 @@ class ClaudeProvider:
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         title = "".join(parts).strip().strip("「」\"'。.")
         return title[:30]
+
+    async def summarize_article(self, text: str, lang: str = "zh") -> str:
+        prompt = build_article_prompt(text, lang)
+        msg = await self.client.messages.create(
+            model=self.text_model,
+            max_tokens=600,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
+        return "".join(parts).strip()
 
     async def suggest_tags(self, body: str) -> list[str]:
         prompt = TAGS_PROMPT.format(body=body[:2000])

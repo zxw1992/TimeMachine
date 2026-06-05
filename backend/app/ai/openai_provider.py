@@ -12,6 +12,7 @@ from .base import (
     REPORT_PROMPT,
     SUMMARY_PROMPT,
     TAGS_PROMPT,
+    build_article_prompt,
     parse_suggested_tags,
 )
 
@@ -69,6 +70,15 @@ class OpenAIProvider:
         )
         title = (resp.choices[0].message.content or "").strip().strip("「」\"'。.")
         return title[:30]
+
+    async def summarize_article(self, text: str, lang: str = "zh") -> str:
+        prompt = build_article_prompt(text, lang)
+        resp = await self.client.chat.completions.create(
+            model=self.text_model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
+        )
+        return (resp.choices[0].message.content or "").strip()
 
     async def suggest_tags(self, body: str) -> list[str]:
         prompt = TAGS_PROMPT.format(body=body[:2000])

@@ -52,6 +52,9 @@ class _Lazy:
     async def summarize_title(self, body: str) -> str:
         return await self._get().summarize_title(body)
 
+    async def summarize_article(self, text: str, lang: str = "zh") -> str:
+        return await self._get().summarize_article(text, lang)
+
     async def suggest_tags(self, body: str) -> list[str]:
         return await self._get().suggest_tags(body)
 
@@ -89,6 +92,9 @@ class CompositeProvider:
 
     async def summarize_title(self, body: str) -> str:
         return await self.primary.summarize_title(body)
+
+    async def summarize_article(self, text: str, lang: str = "zh") -> str:
+        return await self.primary.summarize_article(text, lang)
 
     async def suggest_tags(self, body: str) -> list[str]:
         return await self.primary.suggest_tags(body)

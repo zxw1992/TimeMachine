@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { entryImages, type EntryOut } from "../api";
+import { entryImages, entryLink, linkHost, type EntryOut } from "../api";
 import { dayKey, hhmm } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import AudioPlayer from "./AudioPlayer";
@@ -20,6 +20,7 @@ export default function RiverEntry({
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const images = entryImages(entry);
+  const link = entryLink(entry);
 
   const previewBody =
     entry.body.length > 140 ? entry.body.slice(0, 140).replace(/\n/g, " ") + "…" : entry.body;
@@ -52,6 +53,37 @@ export default function RiverEntry({
               </span>
             )}
           </div>
+
+          {/* Saved web link: small card with the source + a jump to the original. */}
+          {link && (
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mb-3 flex items-center gap-3 rounded-lg hairline border p-2.5
+                         hover:border-amber transition-colors duration-200 group/link"
+            >
+              {link.image && (
+                <img
+                  src={link.image}
+                  alt=""
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                  className="w-14 h-14 rounded-md object-cover hairline border shrink-0"
+                />
+              )}
+              <span className="min-w-0">
+                <span className="block text-xs text-ink-faint truncate">
+                  {link.site || linkHost(link.url)}
+                </span>
+                <span className="block text-xs text-amber group-hover/link:underline">
+                  {t("entry.link.open")}
+                </span>
+              </span>
+            </a>
+          )}
 
           {/* Images: thumbnails in a row → click to expand to full size. One
               entry can hold several photos. */}
