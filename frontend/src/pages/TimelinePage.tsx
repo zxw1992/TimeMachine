@@ -24,6 +24,7 @@ const KIND_DOT: Record<string, string> = {
   text: "bg-ink-muted border-ink-muted",
   image: "bg-amber border-amber",
   audio: "bg-amber-soft border-amber-soft",
+  link: "bg-paper border-amber",
 };
 
 /** Pixel gap above an entry, scaled by minutes since the previous one. */

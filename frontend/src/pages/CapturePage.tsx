@@ -10,7 +10,7 @@ import ProcessingTray, { type Job } from "../components/ProcessingTray";
 import TagInput from "../components/TagInput";
 import { useI18n } from "../lib/i18n";
 
-type Mode = "text" | "image" | "audio";
+type Mode = "text" | "image" | "audio" | "link";
 
 const isTerminal = (s: string) => s === "done" || s === "error";
 
@@ -19,7 +19,7 @@ const MAX_RECENT = 5;
 const DRAFT_KEY = "aitm-draft-text";
 
 export default function CapturePage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("text");
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -31,6 +31,7 @@ export default function CapturePage() {
   const [onboardKey, setOnboardKey] = useState(0);
   const [text, setText] = useState(() => localStorage.getItem(DRAFT_KEY) ?? "");
   const [hint, setHint] = useState("");
+  const [url, setUrl] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -185,6 +186,11 @@ export default function CapturePage() {
         for (const f of images) fd.append("files", f);
       } else if (mode === "audio" && file) {
         fd.append("files", file);
+      } else if (mode === "link") {
+        fd.append("url", url.trim());
+        // The article summary is written in the current UI language (so an
+        // English page gets a Chinese summary when the app is in Chinese).
+        fd.append("lang", lang);
       }
       const entry = await createEntry(fd);
       const job: Job = {
@@ -203,6 +209,7 @@ export default function CapturePage() {
       }
       setText("");
       setHint("");
+      setUrl("");
       setFile(null);
       setImages([]);
       setTags([]);
@@ -278,7 +285,8 @@ export default function CapturePage() {
     !submitting &&
     ((mode === "text" && text.trim().length > 0) ||
       (mode === "image" && images.length > 0) ||
-      (mode === "audio" && file !== null));
+      (mode === "audio" && file !== null) ||
+      (mode === "link" && url.trim().length > 0));
 
   return (
     <div className="max-w-compose mx-auto px-6 pt-10 pb-24 animate-fade-in">
@@ -289,7 +297,7 @@ export default function CapturePage() {
 
       {/* Mode toggles: minimal ink dots */}
       <div className="flex items-center gap-6 mb-6">
-        {(["text", "image", "audio"] as Mode[]).map((m) => (
+        {(["text", "image", "audio", "link"] as Mode[]).map((m) => (
           <button
             key={m}
             type="button"
@@ -441,6 +449,27 @@ export default function CapturePage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t("capture.audio.note")}
+              className="w-full bg-transparent border-t hairline pt-3 border-0 focus:outline-none
+                         text-sm leading-6 text-ink placeholder:text-ink-faint min-h-[60px] resize-none"
+            />
+          </div>
+        )}
+
+        {mode === "link" && (
+          <div className="space-y-3">
+            <input
+              type="url"
+              inputMode="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={t("capture.link.placeholder")}
+              className="input-clean w-full py-2 text-base text-ink placeholder:text-ink-faint"
+            />
+            <p className="text-xs text-ink-faint">{t("capture.link.hint")}</p>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={t("capture.link.note")}
               className="w-full bg-transparent border-t hairline pt-3 border-0 focus:outline-none
                          text-sm leading-6 text-ink placeholder:text-ink-faint min-h-[60px] resize-none"
             />

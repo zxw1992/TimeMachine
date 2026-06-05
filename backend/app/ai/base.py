@@ -14,6 +14,8 @@ class AIProvider(Protocol):
 
     async def summarize_title(self, body: str) -> str: ...
 
+    async def summarize_article(self, text: str, lang: str = "zh") -> str: ...
+
     async def suggest_tags(self, body: str) -> list[str]: ...
 
     async def summarize_period(self, body: str) -> str: ...
@@ -31,6 +33,29 @@ SUMMARY_PROMPT = (
     "quotes and no trailing punctuation (about 12 words, or 20 characters for CJK). "
     "Write the title in the same language as the content.\n\nContent:\n{body}"
 )
+
+# Unlike titles / image descriptions (which follow the content's own language),
+# the article summary is a digest for the person browsing their timeline, so it
+# follows the app's UI language (default Chinese). An English article then gets a
+# Chinese summary up top, with the original English text preserved below it.
+ARTICLE_PROMPT = (
+    "You are summarizing a web article saved to someone's personal memory "
+    "timeline, so they can recall what it said later without reopening the page. "
+    "Write a faithful, self-contained summary of the article below: its main "
+    "point, the key supporting ideas, and any important specifics (names, "
+    "numbers, conclusions). Use 3-6 sentences (about 120-240 characters for CJK). "
+    "No preamble like 'This article', no opinions of your own. Write the summary "
+    "in {lang_name}, regardless of what language the article itself is in."
+    "\n\nArticle:\n{body}"
+)
+
+_ARTICLE_LANG_NAMES = {"zh": "Chinese (简体中文)", "en": "English"}
+
+
+def build_article_prompt(text: str, lang: str = "zh") -> str:
+    """Render ARTICLE_PROMPT for a target UI language, truncating the input."""
+    lang_name = _ARTICLE_LANG_NAMES.get((lang or "zh").lower(), _ARTICLE_LANG_NAMES["zh"])
+    return ARTICLE_PROMPT.format(lang_name=lang_name, body=text[:6000])
 
 TAGS_PROMPT = (
     "Suggest 3-5 short topical tags for the memory entry below, to help organize "

@@ -15,6 +15,7 @@ const STEPS: Record<EntryKind, EntryStatus[]> = {
   text: ["titling", "embedding"],
   image: ["describing", "titling", "embedding"],
   audio: ["transcribing", "titling", "embedding"],
+  link: ["fetching", "summarizing", "titling", "embedding"],
 };
 
 // Linear order used to decide which steps are already past.
@@ -22,6 +23,8 @@ const ORDER: EntryStatus[] = [
   "queued",
   "describing",
   "transcribing",
+  "fetching",
+  "summarizing",
   "titling",
   "embedding",
   "done",

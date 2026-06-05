@@ -21,6 +21,7 @@ const zh: Dict = {
   "nav.search": "回溯",
   "nav.review": "回顾",
   "nav.settings": "设置",
+  "nav.github": "在 GitHub 查看源码",
 
   // Review page
   "review.title": "回顾",
@@ -125,9 +126,11 @@ const zh: Dict = {
   "kind.text": "文字",
   "kind.image": "影像",
   "kind.audio": "声音",
+  "kind.link": "链接",
   "kind.glyph.text": "文",
   "kind.glyph.image": "影",
   "kind.glyph.audio": "声",
+  "kind.glyph.link": "链",
 
   // Capture page
   "capture.title": "此刻",
@@ -135,7 +138,11 @@ const zh: Dict = {
   "capture.mode.text": "想到的",
   "capture.mode.image": "看到的",
   "capture.mode.audio": "听到的",
+  "capture.mode.link": "读到的",
   "capture.text.placeholder": "此刻在想什么…",
+  "capture.link.placeholder": "粘贴网页链接，AI 会解析正文并记录下来",
+  "capture.link.note": "可选：为什么想存它 / 你的批注",
+  "capture.link.hint": "适合文章、博客、新闻；英文网页也会自动生成中文摘要。付费墙或需登录的页面可能抓取不到。",
   "capture.image.drop": "选择或拖入一张图",
   "capture.image.paste": "⌘V 也可以直接粘贴截图",
   "capture.image.hint": "可选：补充上下文（在哪儿看到的）",
@@ -155,6 +162,8 @@ const zh: Dict = {
   "capture.stage.queued": "排队中",
   "capture.stage.describing": "识别图片",
   "capture.stage.transcribing": "转写语音",
+  "capture.stage.fetching": "抓取网页",
+  "capture.stage.summarizing": "提炼正文",
   "capture.stage.titling": "生成标题",
   "capture.stage.embedding": "建立索引",
   "capture.stage.done": "完成",
@@ -240,6 +249,7 @@ const zh: Dict = {
   "entry.collapse": "收起",
   "entry.locate": "在时间轴查看",
   "entry.delete": "删除",
+  "entry.link.open": "查看原文 ↗",
 
   // Audio player
   "audio.play": "播放",
@@ -288,6 +298,7 @@ const en: Dict = {
   "nav.search": "Recall",
   "nav.review": "Review",
   "nav.settings": "Settings",
+  "nav.github": "View source on GitHub",
 
   // Review page
   "review.title": "Review",
@@ -392,9 +403,11 @@ const en: Dict = {
   "kind.text": "Text",
   "kind.image": "Image",
   "kind.audio": "Audio",
+  "kind.link": "Link",
   "kind.glyph.text": "T",
   "kind.glyph.image": "I",
   "kind.glyph.audio": "A",
+  "kind.glyph.link": "L",
 
   // Capture page
   "capture.title": "Now",
@@ -402,7 +415,11 @@ const en: Dict = {
   "capture.mode.text": "Thought",
   "capture.mode.image": "Saw",
   "capture.mode.audio": "Heard",
+  "capture.mode.link": "Read",
   "capture.text.placeholder": "What's on your mind…",
+  "capture.link.placeholder": "Paste a web link — AI reads the article and records it",
+  "capture.link.note": "Optional: why you're saving it / your note",
+  "capture.link.hint": "Great for articles, blogs, and news; the summary is written in your app language. Paywalled or login-gated pages may not be fetchable.",
   "capture.image.drop": "Choose or drag in an image",
   "capture.image.paste": "⌘V also pastes a screenshot directly",
   "capture.image.hint": "Optional: add context (where you saw it)",
@@ -422,6 +439,8 @@ const en: Dict = {
   "capture.stage.queued": "Queued",
   "capture.stage.describing": "Reading image",
   "capture.stage.transcribing": "Transcribing",
+  "capture.stage.fetching": "Fetching",
+  "capture.stage.summarizing": "Summarizing",
   "capture.stage.titling": "Writing title",
   "capture.stage.embedding": "Indexing",
   "capture.stage.done": "Done",
@@ -507,6 +526,7 @@ const en: Dict = {
   "entry.collapse": "Collapse",
   "entry.locate": "View on timeline",
   "entry.delete": "Delete",
+  "entry.link.open": "View original ↗",
 
   // Audio player
   "audio.play": "Play",

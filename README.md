@@ -4,7 +4,7 @@
 
 ![CI](https://github.com/zxw1992/TimeMachine/actions/workflows/ci.yml/badge.svg)
 
-A personal multimodal memory timeline. Drop in **what you see** (images, screenshots), **what you hear** (voice recordings), and **what you think** (text), and a multimodal AI organizes them into timestamped, searchable entries you can revisit later.
+A personal multimodal memory timeline. Drop in **what you see** (images, screenshots), **what you hear** (voice recordings), **what you read** (web links), and **what you think** (text), and a multimodal AI organizes them into timestamped, searchable entries you can revisit later.
 
 - **Platform**: macOS / Windows / Linux (runs locally in your browser at `localhost`)
 - **Backend**: Python 3.11 + FastAPI
@@ -87,7 +87,7 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1
 
 Open http://localhost:5173 in your browser:
 
-- **Capture** — jot text, drop images (`⌘V` or several at once), or record audio, and add tags as you go. Entries are organized by AI in the background; past ones resurface as **"On this day."**
+- **Capture** — jot text, drop images (`⌘V` or several at once), record audio, or paste a **web link**: the page is fetched, the article text archived locally (so it survives link rot and stays full-text + semantic searchable), and the AI writes a summary in your app language — an English article gets a Chinese summary when the UI is Chinese, with the original text kept below. Add tags as you go; entries are organized by AI in the background, and past ones resurface as **"On this day."**
 - **Timeline** — a vertical "river of time" by day, with a calendar heatmap and tag / favorite filters. Open any entry to read it, edit the title / body / time, favorite it (♥), or tag it — with one-click **AI tag suggestions**.
 - **Search** — find memories by meaning, in natural language.
 - **Review** — weekly / monthly recaps: instant stats (counts, activity, top tags) plus an on-demand **AI summary** — a headline, a story-like narrative, themes, and a generated poster.

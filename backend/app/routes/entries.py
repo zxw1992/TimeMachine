@@ -48,11 +48,13 @@ async def create_entry(
     kind: Annotated[str, Form()],
     text: Annotated[str | None, Form()] = None,
     hint: Annotated[str | None, Form()] = None,
+    url: Annotated[str | None, Form()] = None,
+    lang: Annotated[str | None, Form()] = None,
     occurred_at: Annotated[str | None, Form()] = None,
     tags: Annotated[list[str] | None, Form()] = None,
     files: Annotated[list[UploadFile] | None, File()] = None,
 ) -> EntryOut:
-    if kind not in {"text", "image", "audio"}:
+    if kind not in {"text", "image", "audio", "link"}:
         raise HTTPException(400, f"非法 kind: {kind}")
 
     # An image capture may carry several files that form one entry; audio sends
@@ -77,6 +79,8 @@ async def create_entry(
             uploads=uploads,
             hint=hint,
             occurred_at=occurred_at,
+            url=url,
+            lang=lang,
         )
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
